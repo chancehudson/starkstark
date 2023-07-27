@@ -166,7 +166,16 @@ export class Polynomial {
     return this
   }
 
+  // if a divide by zero occurs there is likely a duplicate x value
   static lagrange(xValues, yValues, field) {
+    // const xMap = xValues.reduce((acc, v, i) => ({
+    //   ...acc,
+    //   [v]: [...(acc[v.toString()] ?? []), i],
+    // }), {})
+    // for (const v of xValues) {
+    //   if (xMap[v.toString()].length > 1) throw new Error('Duplicate x value')
+    // }
+
     const numerator = new Polynomial(field)
       .term({ coef: 1n, exp: 0n })
     // build the common numerator

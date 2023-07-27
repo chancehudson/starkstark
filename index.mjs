@@ -7,11 +7,7 @@ const traceElements = [1n, 3141592n]
 // g is the generator point for group of 1024 elements
 // we'll construct it here
 // field is 3*2^30 so we do 3*2^20 for a difference of 1024
-let g = field.g
-for (let x = 0; x < 3*2**20-1; x++) {
-  g = field.mul(g, field.g)
-}
-console.log(g)
+const g = field.generator(1024n)
 
 // check order of resulting g value
 let b = 1n

@@ -38,6 +38,27 @@ export class ScalarField {
     return this.mul(-1n, v)
   }
 
+  // calculate v^e using 2^k-ary method
+  // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+  exp(v, e) {
+    let t = 1n
+    while (e > 0n) {
+      if (e % 2n !== 0n) t = this.mul(t, v)
+      v = this.mul(v, v)
+      // relying on floored division here
+      e = e / 2n
+    }
+    return this.mod(t)
+  }
+
+  // get a generator point for a subgroup of `size` elements
+  generator(size) {
+    if (!this.g) throw new Error('No field generator value specified')
+    if (size >= this.p) throw new Error('Subgroup must be smaller than field')
+    if (((this.p -1n) % size) !== 0n) throw new Error('Subgroup must be a divisor of the field size')
+    return this.exp(this.g, (this.p-1n) / size)
+  }
+
   inv(d) {
     d = this.mod(d)
     if (d === 0n) throw new Error('divide by zero')

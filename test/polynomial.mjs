@@ -173,8 +173,20 @@ test('should divide more complex polynomials', t => {
 test('should calculate lagrange polynomial', t => {
   const f = new ScalarField(101n)
   const count = 5
-  const xValues = Array(count).fill().map(() => f.mod(BigInt(Math.floor(Math.random()*10000))))
-  const yValues = Array(count).fill().map(() => f.mod(BigInt(Math.floor(Math.random()*10000))))
+  const random = () => {
+    let r = BigInt(Math.floor(Math.random() * 1000))
+    r = f.mod(r)
+    if (r === 0n) r += 1n
+    return r
+  }
+  // need to make sure no x values are duplicated
+  const xValues = []
+  while (xValues.length < count) {
+    const v = random()
+    if (xValues.indexOf(v) !== -1) continue
+    xValues.push(v)
+  }
+  const yValues = Array(count).fill().map(() => random())
   const poly = Polynomial.lagrange(xValues, yValues, f)
 
   for (let i = 0; i < xValues.length; i++) {
