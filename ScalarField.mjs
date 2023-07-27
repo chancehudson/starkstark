@@ -7,6 +7,7 @@ export class ScalarField {
   }
 
   mod(v) {
+    if (v < this.p && v >= 0) return v
     if (v < 0n) {
     // if we have v = -12 in _F = 9
     // we need to do 18 + v = 6
@@ -27,6 +28,10 @@ export class ScalarField {
 
   mul(v1, v2) {
     return this.mod(v1 * v2)
+  }
+
+  div(v1, v2) {
+    return this.mul(v1, this.inv(v2))
   }
 
   inv(d) {

@@ -95,3 +95,77 @@ test('should subtract polynomials', t => {
 
   t.is(expected.equal(p1), true)
 })
+
+test('should divide polynomials', t => {
+  const f = new ScalarField(101n)
+  const p1 = new Polynomial(f)
+
+  // x^2
+  p1.term({ coef: 1n, exp: 2n })
+  // 2*x
+  p1.term({ coef: 2n, exp: 1n })
+  // -7
+  p1.term({ coef: -7n, exp: 0n })
+
+  const p2 = new Polynomial(f)
+  // x
+  p2.term({ coef: 1n, exp: 1n })
+  // -2
+  p2.term({ coef: -2n, exp: 0n })
+
+  // expect to have
+  // q: x + 4
+  // r: 1
+  const expectedQ = new Polynomial(f)
+  expectedQ.term({ coef: 1n, exp: 1n })
+  expectedQ.term({ coef: 4n, exp: 0n })
+  const expectedR = new Polynomial(f)
+  expectedR.term({ coef: 1n, exp: 0n })
+
+  const { q, r } = p1.div(p2)
+
+  t.is(expectedQ.equal(q), true)
+  t.is(expectedR.equal(r), true)
+
+  t.is(q.mul(p2).add(r).equal(p1), true)
+})
+
+test('should divide more complex polynomials', t => {
+  const f = new ScalarField(101n)
+  const p1 = new Polynomial(f)
+
+  // x^4
+  p1.term({ coef: 1n, exp: 4n })
+  // 2*x^3
+  p1.term({ coef: 2n, exp: 3n })
+  // -3*x^2
+  p1.term({ coef: -3n, exp: 2n })
+  // 1
+  p1.term({ coef: 1n, exp: 0n })
+
+  const p2 = new Polynomial(f)
+  // 2*x^2
+  p2.term({ coef: 2n, exp: 2n })
+  // -1*x
+  p2.term({ coef: -1n, exp: 1n })
+  // 3
+  p2.term({ coef: 3n, exp: 0n })
+
+  // expect to have
+  // q: (1/2)*x^2 + (5/4)*x - (13/8)
+  // r: -(43/8)*x + (47/8)
+  const expectedQ = new Polynomial(f)
+  expectedQ.term({ coef: f.div(1n, 2n), exp: 2n })
+  expectedQ.term({ coef: f.div(5n, 4n), exp: 1n })
+  expectedQ.term({ coef: f.div(-13n, 8n), exp: 0n })
+  const expectedR = new Polynomial(f)
+  expectedR.term({ coef: f.div(-43n, 8n), exp: 1n })
+  expectedR.term({ coef: f.div(47n, 8n), exp: 0n })
+
+  const { q, r } = p1.div(p2)
+
+  t.is(expectedQ.equal(q), true)
+  t.is(expectedR.equal(r), true)
+
+  t.is(q.mul(p2).add(r).equal(p1), true)
+})

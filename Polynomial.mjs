@@ -48,8 +48,33 @@ export class Polynomial {
     return this
   }
 
-  div(poly) {
+  div(divisor) {
+    // divisor must have degree less than `this`
+    if (divisor.terms.length === 0) throw new Error('Divide by 0')
+    const outTerms = []
+    const divisorTerm = divisor.sortedTerms.pop()
+    const interPoly = this.copy()
+    while (interPoly.degree() >= divisor.degree()) {
+      const largestTerm = interPoly.sortedTerms.pop()
+      const coef = this.field.div(largestTerm.coef, divisorTerm.coef)
+      const exp = largestTerm.exp - divisorTerm.exp
+      outTerms.push({ coef, exp })
+      const t = new Polynomial(this.field)
+      t.terms = [{ coef, exp }]
+      interPoly.sub(divisor.copy().mul(t))
+    }
+    const q = new Polynomial(this.field)
+    q.terms = outTerms
+    q._consolidate()
+    return {
+      q,
+      r: interPoly
+    }
+  }
 
+  // return terms in ascending order
+  get sortedTerms() {
+    return [...this.terms].sort((a,b) => a.exp > b.exp ? 1 : -1)
   }
 
   add(poly) {
@@ -85,11 +110,11 @@ export class Polynomial {
       if (!expCoefMap[t.exp]) {
         expCoefMap[t.exp] = 0n
       }
-      expCoefMap[t.exp] += t.coef
+      expCoefMap[t.exp] = this.field.add(expCoefMap[t.exp], t.coef)
     }
     const terms = []
     for (const exp of Object.keys(expCoefMap)) {
-      if (exp === 0n) continue
+      if (expCoefMap[exp] === 0n) continue
       terms.push({
         coef: expCoefMap[exp],
         exp: BigInt(exp),
