@@ -3,23 +3,14 @@
  * { coef, exp }
  **/
 
-export function lagrange(xValues, field) {
-  const polynomials = []
-  const monomials = []
-  // x -
-  for (const v of xValues) {
-    const poly = new Polynomial(field)
-    // x - v
-    poly.term(1n, 1n)
-    poly.term(-1n*v, 0n)
-    monomials.push(poly)
-  }
-}
-
 export class Polynomial {
   constructor(field) {
     this.field = field
     this.terms = []
+  }
+
+  isZero() {
+    return this.terms.length === 0
   }
 
   // test if one polynomial is equal to another
@@ -45,6 +36,19 @@ export class Polynomial {
     }
     this.terms = newTerms.flat()
     this._consolidate()
+    return this
+  }
+
+  mulScalar(v) {
+    if (this.field.mod(v) === 0n) {
+      this.terms = []
+      return this
+    }
+    this.terms = this.terms.map(({ coef, exp }) => ({
+      coef: this.field.mul(coef, v),
+      exp,
+    }))
+    // TODO: do we need to consolidate here?
     return this
   }
 
@@ -161,4 +165,41 @@ export class Polynomial {
     this._consolidate()
     return this
   }
+
+  static lagrange(xValues, yValues, field) {
+    const numerator = new Polynomial(field)
+      .term({ coef: 1n, exp: 0n })
+    // build the common numerator
+    for (const v of xValues) {
+      const poly = new Polynomial(field)
+        .term({ coef: 1n, exp: 1n })
+        .term({ coef: field.neg(v), exp: 0n })
+      numerator.mul(poly)
+    }
+
+    const polynomials = []
+    for (let j = 0; j < xValues.length; j++) {
+      let denominator = 1n
+      // build the denominator
+      for (const [i, v] of Object.entries(xValues)) {
+        if (+i === +j) continue
+        denominator = field.mul(denominator, xValues[j] - xValues[+i])
+      }
+      // build a divisor for the common numerator
+      // for the current j value
+      const n = new Polynomial(field)
+        .term({ coef: 1n, exp: 1n })
+        .term({ coef: field.neg(xValues[j]), exp: 0n })
+        .mulScalar(denominator)
+      const { q: poly, r } = numerator.div(n)
+      if (!r.isZero()) throw new Error('non-zero remainder in lagrange polynomial')
+      polynomials.push(poly)
+    }
+    const final = new Polynomial(field)
+    for (let j = 0; j < xValues.length; j++) {
+      final.add(polynomials[j].mulScalar(yValues[j]))
+    }
+    return final
+  }
+
 }

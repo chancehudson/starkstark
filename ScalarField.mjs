@@ -34,6 +34,10 @@ export class ScalarField {
     return this.mul(v1, this.inv(v2))
   }
 
+  neg(v) {
+    return this.mul(-1n, v)
+  }
+
   inv(d) {
     d = this.mod(d)
     if (d === 0n) throw new Error('divide by zero')

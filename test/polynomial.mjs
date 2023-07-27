@@ -169,3 +169,15 @@ test('should divide more complex polynomials', t => {
 
   t.is(q.mul(p2).add(r).equal(p1), true)
 })
+
+test('should calculate lagrange polynomial', t => {
+  const f = new ScalarField(101n)
+  const count = 5
+  const xValues = Array(count).fill().map(() => f.mod(BigInt(Math.floor(Math.random()*10000))))
+  const yValues = Array(count).fill().map(() => f.mod(BigInt(Math.floor(Math.random()*10000))))
+  const poly = Polynomial.lagrange(xValues, yValues, f)
+
+  for (let i = 0; i < xValues.length; i++) {
+    t.is(poly.evaluate(xValues[i]), yValues[i])
+  }
+})
