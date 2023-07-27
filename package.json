@@ -1,0 +1,17 @@
+{
+  "devDependencies": {
+    "ava": "^5.3.1"
+  },
+  "name": "starkjs",
+  "version": "0.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "ava"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
