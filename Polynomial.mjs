@@ -22,6 +22,63 @@ export class Polynomial {
     this.terms = []
   }
 
+  // test if one polynomial is equal to another
+  equal(poly) {
+    if (poly.terms.length !== this.terms.length) return false
+    for (const term of this.terms) {
+      if (!poly.terms.find(({ coef, exp }) => coef === term.coef && exp === term.exp)) return false
+    }
+    return true
+  }
+
+  copy() {
+    const p = new Polynomial(this.field)
+    p.terms = [...this.terms]
+    return p
+  }
+
+  mul(poly) {
+    // TODO: check that the fields for the polynomials match
+    const newTerms = []
+    for (const term of poly.terms) {
+      newTerms.push(this._mulTerm(term))
+    }
+    this.terms = newTerms.flat()
+    this._consolidate()
+    return this
+  }
+
+  div(poly) {
+
+  }
+
+  add(poly) {
+    this.terms.push(...poly.terms)
+    this._consolidate()
+    return this
+  }
+
+  sub(poly) {
+    return this.add(poly.copy().neg())
+  }
+
+  neg(poly) {
+    this.terms = this._mulTerm({ coef: -1n, exp: 0n })
+    this._consolidate()
+    return this
+  }
+
+  _mulTerm({ coef, exp }) {
+    const newTerms = []
+    for (const term of this.terms) {
+      newTerms.push({
+        coef: this.field.mul(term.coef, coef),
+        exp: exp + term.exp,
+      })
+    }
+    return newTerms
+  }
+
   _consolidate() {
     const expCoefMap = {}
     for (const t of this.terms) {
@@ -39,10 +96,7 @@ export class Polynomial {
       })
     }
     this.terms = terms
-  }
-
-  get sortedTerms() {
-    return this.terms.sort((a, b) => a.exp > b.exp ? 1 : -1)
+    return this
   }
 
   degree() {
@@ -74,11 +128,12 @@ export class Polynomial {
     return out
   }
 
-  term(coef, exp) {
+  term({ coef, exp }) {
     this.terms.push({
       coef: this.field.mod(coef),
       exp: this.field.mod(exp),
     })
     this._consolidate()
+    return this
   }
 }
