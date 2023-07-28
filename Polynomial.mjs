@@ -175,6 +175,7 @@ export class Polynomial {
     // for (const v of xValues) {
     //   if (xMap[v.toString()].length > 1) throw new Error('Duplicate x value')
     // }
+    if (xValues.length !== yValues.length) throw new Error('Mismatched input lengths')
 
     const numerator = new Polynomial(field)
       .term({ coef: 1n, exp: 0n })
