@@ -36,7 +36,7 @@ test('should multiply term', t => {
     .term({ coef: 2n, exp: 7n })
     .term({ coef: 10n, exp: 8n })
 
-  t.is(outP.equal(expected), true)
+  t.is(outP.isEqual(expected), true)
 })
 
 test('should multiply polynomials', t => {
@@ -64,7 +64,7 @@ test('should multiply polynomials', t => {
 
   p1.mul(p2)
 
-  t.is(expected.equal(p1), true)
+  t.is(expected.isEqual(p1), true)
 })
 
 // implicitly tests add/neg function as well
@@ -93,7 +93,7 @@ test('should subtract polynomials', t => {
 
   p1.sub(p2)
 
-  t.is(expected.equal(p1), true)
+  t.is(expected.isEqual(p1), true)
 })
 
 test('should divide polynomials', t => {
@@ -124,10 +124,10 @@ test('should divide polynomials', t => {
 
   const { q, r } = p1.div(p2)
 
-  t.is(expectedQ.equal(q), true)
-  t.is(expectedR.equal(r), true)
+  t.is(expectedQ.isEqual(q), true)
+  t.is(expectedR.isEqual(r), true)
 
-  t.is(q.mul(p2).add(r).equal(p1), true)
+  t.is(q.mul(p2).add(r).isEqual(p1), true)
 })
 
 test('should divide more complex polynomials', t => {
@@ -164,10 +164,10 @@ test('should divide more complex polynomials', t => {
 
   const { q, r } = p1.div(p2)
 
-  t.is(expectedQ.equal(q), true)
-  t.is(expectedR.equal(r), true)
+  t.is(expectedQ.isEqual(q), true)
+  t.is(expectedR.isEqual(r), true)
 
-  t.is(q.mul(p2).add(r).equal(p1), true)
+  t.is(q.mul(p2).add(r).isEqual(p1), true)
 })
 
 test('should calculate lagrange polynomial', t => {

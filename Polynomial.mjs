@@ -14,7 +14,7 @@ export class Polynomial {
   }
 
   // test if one polynomial is equal to another
-  equal(poly) {
+  isEqual(poly) {
     if (poly.terms.length !== this.terms.length) return false
     for (const term of this.terms) {
       if (!poly.terms.find(({ coef, exp }) => coef === term.coef && exp === term.exp)) return false
