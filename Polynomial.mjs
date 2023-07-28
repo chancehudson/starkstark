@@ -166,6 +166,31 @@ export class Polynomial {
     return this
   }
 
+  // TODO: see if this there is an O(log) implementation
+  exp(e) {
+    if (e === 0n) {
+      this.terms = [{ coef: 1n, exp: 0n }]
+      return this
+    }
+    for (let x = 1n; x < e; x++) {
+      this.mul(this)
+    }
+    return this
+  }
+
+  // compose `poly` into `this`
+  compose(poly) {
+    const out = new Polynomial(this.field)
+    for (const term of this.terms) {
+      const p = poly.copy()
+        .exp(term.exp)
+        .mulScalar(term.coef)
+      out.add(p)
+    }
+    this.terms = out.terms
+    return this
+  }
+
   // if a divide by zero occurs there is likely a duplicate x value
   static lagrange(xValues, yValues, field) {
     // const xMap = xValues.reduce((acc, v, i) => ({
@@ -189,6 +214,7 @@ export class Polynomial {
 
     const polynomials = []
     for (let j = 0; j < xValues.length; j++) {
+      console.log(j)
       let denominator = 1n
       // build the denominator
       for (const [i, v] of Object.entries(xValues)) {

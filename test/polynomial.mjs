@@ -193,3 +193,23 @@ test('should calculate lagrange polynomial', t => {
     t.is(poly.evaluate(xValues[i]), yValues[i])
   }
 })
+
+test('should compose polynomial', t => {
+  const f = new ScalarField(101n)
+  // x + 1
+  const p = new Polynomial(f)
+    .term({ coef: 1n, exp: 1n })
+    .term({ coef: 1n, exp: 0n })
+  // 2*(x + 1)^2 + 2
+  const b = new Polynomial(f)
+    .term({ coef: 2n, exp: 2n })
+    .term({ coef: 2n, exp: 0n })
+    .compose(p)
+  // 2x^2 + 4x + 4
+  const expected = new Polynomial(f)
+    .term({ coef: 2n, exp: 2n })
+    .term({ coef: 4n, exp: 1n })
+    .term({ coef: 4n, exp: 0n })
+
+  t.true(b.isEqual(expected))
+})

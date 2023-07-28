@@ -26,19 +26,52 @@ const poly = Polynomial.lagrange(G.slice(0, -1), traceElements, field)
 const evaled = evalDomain.map(v => poly.evaluate(v))
 console.log(evaled)
 
-const numer0 = poly.copy().term({ coef: -1n, exp: 0n })
-const denom0 = new Polynomial(field)
-  .term({ coef: 1n, exp: 1n })
-  .term({ coef: -1n, exp: 0n })
+{
+  const numer0 = poly.copy().term({ coef: -1n, exp: 0n })
+  const denom0 = new Polynomial(field)
+    .term({ coef: 1n, exp: 1n })
+    .term({ coef: -1n, exp: 0n })
 
-const { q: constraint0 } = numer0.div(denom0)
-console.log(constraint0.evaluate(2718n))
+  const { q: constraint0 } = numer0.div(denom0)
+  // 2509888982
+  console.log(constraint0.evaluate(2718n))
+}
 
-const numer1 = poly.copy().term({ coef: -2338775057n, exp: 0n })
-const denom1 = new Polynomial(field)
-  .term({ coef: 1n, exp: 1n })
-  .term({ coef: field.exp(g, 1022n), exp: 0n })
-const { q: constraint1 } = numer1.div(denom1)
+{
+  const numer1 = poly.copy().term({ coef: -2338775057n, exp: 0n })
+  const denom1 = new Polynomial(field)
+    .term({ coef: 1n, exp: 1n })
+    .term({ coef: field.exp(g, 1022n), exp: 0n })
+  const { q: constraint1 } = numer1.div(denom1)
 
-// 232961446
-console.log(constraint1.evaluate(5772n))
+  // 232961446
+  console.log(constraint1.evaluate(5772n))
+}
+
+{
+  const numer = poly
+    .copy()
+    .mulScalar(field.exp(g, 2n))
+    .sub(poly.copy().mulScalar(g).exp(2n))
+    .sub(poly.copy().exp(2n))
+    .mul(
+      new Polynomial(field)
+        .term({ coef: 1n, exp: 1n })
+        .term({ coef: field.mul(-1n, field.exp(g, 1021n)), exp: 0n })
+    )
+    .mul(
+      new Polynomial(field)
+        .term({ coef: 1n, exp: 1n })
+        .term({ coef: field.mul(-1n, field.exp(g, 1022n)), exp: 0n })
+    )
+    .mul(
+      new Polynomial(field)
+        .term({ coef: 1n, exp: 1n })
+        .term({ coef: field.mul(-1n, field.exp(g, 1023n)), exp: 0n })
+    )
+  const denom = new Polynomial(field)
+    .term({ coef: 1n, exp: 1024n })
+    .term({ coef: field.mod(-1n), exp: 0n })
+  const { q: constraint2 } = numer.div(denom)
+  console.log(constraint2.evaluate(31415n))
+}
