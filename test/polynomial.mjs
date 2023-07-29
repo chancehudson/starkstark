@@ -171,7 +171,7 @@ test('should divide more complex polynomials', t => {
 })
 
 test('should calculate lagrange polynomial', t => {
-  const f = new ScalarField(101n)
+  const f = new ScalarField(3221225473n, 5n)
   const count = 5
   const random = () => {
     let r = BigInt(Math.floor(Math.random() * 1000))
@@ -212,4 +212,49 @@ test('should compose polynomial', t => {
     .term({ coef: 4n, exp: 0n })
 
   t.true(b.isEqual(expected))
+})
+
+test('should evaluate polynomial using FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const p = new Polynomial(f)
+
+  p.term({ coef: 1n, exp: 2n })
+  p.term({ coef: 4n, exp: 1n })
+  p.term({ coef: 2n, exp: 0n })
+  p.term({ coef: 5n, exp: 3n })
+
+  // f(x) = 2 + 4x + x^2 + 5x^3
+
+  // let's get a multiplicate subgroup
+  const size = 2n**8n
+  const g = f.generator(size)
+  const G = Array(Number(size)).fill().map((_, i) => f.exp(g, BigInt(i)))
+
+  const out = p.evaluateFFT(G)
+  for (let i = 0; i < G.length; i++) {
+    t.true(out[i] === p.evaluate(G[i]))
+  }
+})
+
+test('should multiply polynomials using FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const p1 = new Polynomial(f)
+
+  // x^2
+  p1.term({ coef: 1n, exp: 2n })
+  // -5*x^3
+  p1.term({ coef: -5n, exp: 3n })
+
+  const p2 = new Polynomial(f)
+  // 20*x^9
+  p2.term({ coef: 20n, exp: 9n })
+  // 12*x^4
+  p2.term({ coef: 12n, exp: 4n })
+
+  // expect to have
+  // 20*x^11 + 12*x^6 - 100*x^12 - 60*x^7
+  const out1 = p1.copy().mulFFT(p2)
+  const actual = p1.copy().mul(p2)
+
+  t.true(out1.isEqual(actual))
 })

@@ -21,8 +21,10 @@ while (traceElements.length < 1023) {
     field.add(field.mul(e1, e1), field.mul(e2, e2))
   )
 }
+traceElements.push(G[1023])
 
-const poly = Polynomial.lagrange(G.slice(0, -1), traceElements, field)
+// const poly = Polynomial.lagrange(G.slice(0, -1), traceElements, field)
+const poly = Polynomial.interpolateFFT(G, traceElements, field)
 const evaled = evalDomain.map(v => poly.evaluate(v))
 console.log(evaled)
 

@@ -81,6 +81,19 @@ export class Polynomial {
     return [...this.terms].sort((a,b) => a.exp > b.exp ? 1 : -1)
   }
 
+  get coefs() {
+    const expMap = this.sortedTerms.reduce((acc, { coef, exp }) => ({
+      ...acc,
+      [exp]: coef,
+    }), {})
+    const coefs = []
+    const d = BigInt(this.degree())
+    for (let x = 0n; x < d+1n; x++) {
+      coefs.push(expMap[x.toString()] ?? 0n)
+    }
+    return coefs
+  }
+
   add(poly) {
     this.terms.push(...poly.terms)
     this._consolidate()
@@ -214,7 +227,6 @@ export class Polynomial {
 
     const polynomials = []
     for (let j = 0; j < xValues.length; j++) {
-      console.log(j)
       let denominator = 1n
       // build the denominator
       for (const [i, v] of Object.entries(xValues)) {
@@ -236,6 +248,70 @@ export class Polynomial {
       final.add(polynomials[j].mulScalar(yValues[j]))
     }
     return final
+  }
+
+  mulFFT(poly) {
+    const elementCount = Math.max(Number(poly.degree()), Number(this.degree())) + 1
+    const domainExp = BigInt(Math.ceil(Math.log2(elementCount*2)))
+    const g = this.field.generator(2n**domainExp)
+    const G = Array(Number(2n**domainExp)).fill().map((_,i) => this.field.exp(g, BigInt(i)))
+
+    const p1Coefs = this.coefs
+    if (p1Coefs.length < G.length) p1Coefs.push(...Array(G.length - p1Coefs.length).fill(0n))
+    const p2Coefs = poly.coefs
+    if (p2Coefs.length < G.length) p2Coefs.push(...Array(G.length - p2Coefs.length).fill(0n))
+
+    const x1 = this._evaluateFFT(p1Coefs, G)
+    const x2 = this._evaluateFFT(p2Coefs, G)
+
+    const x3 = Array(x1.length).fill().map((_, i) => {
+      return this.field.mul(x1[i], x2[i])
+    })
+
+    const out = this.invFFT(this._evaluateFFT(x3, G))
+    const terms = out.map((coef, exp) => ({
+      coef, exp: BigInt(exp),
+    }))
+    .filter(({ coef }) => coef !== 0n)
+    this.terms = terms
+    return this
+  }
+
+  invFFT(out) {
+    const lenInv = this.field.inv(BigInt(out.length))
+    return [out[0], out.slice(1).reverse()]
+      .flat()
+      .map(v => this.field.mul(v, lenInv))
+  }
+
+  // evaluate `this` at every point in domain
+  // domain is an array of values
+  evaluateFFT(domain) {
+    const coefs = this.coefs
+    if (coefs.length < domain.length) coefs.push(...Array(domain.length-coefs.length).fill(0n))
+    return this._evaluateFFT(coefs, domain)
+  }
+
+  _evaluateFFT(vals, domain) {
+    if (vals.length === 1) return vals
+    const domainVals = domain.filter((_, i) => i % 2 === 0)
+    const left = this._evaluateFFT(
+      vals.filter((_, i) => i % 2 === 0),
+      domainVals
+    )
+    const right = this._evaluateFFT(
+      vals.filter((_, i) => i % 2 === 1),
+      domain.filter((_, i) => i % 2 === 0)
+    )
+    const out = Array(vals.length).fill(0)
+    for (let i = 0; i < left.length; i++) {
+      const x = left[i]
+      const y = right[i]
+      const yRoot = this.field.mul(y, domain[i])
+      out[i] = this.field.add(x, yRoot)
+      out[i+left.length] = this.field.sub(x, yRoot)
+    }
+    return out
   }
 
 }
