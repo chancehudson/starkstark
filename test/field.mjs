@@ -1,5 +1,5 @@
-import { ScalarField } from '../ScalarField.mjs'
 import test from 'ava'
+import { ScalarField } from '../src/ScalarField.mjs'
 
 test('should exponentiate in field', t => {
   const f = new ScalarField(3221225473n, 5n)

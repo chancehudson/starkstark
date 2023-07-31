@@ -6,6 +6,11 @@ export class ScalarField {
     this.g = g
   }
 
+  // TODO: make this safe
+  sample(v) {
+    return v % this.p
+  }
+
   mod(v) {
     if (v < this.p && v >= 0) return v
     if (v < 0n) {

@@ -1,5 +1,5 @@
-import { ScalarField } from './ScalarField.mjs'
-import { Polynomial } from './Polynomial.mjs'
+import { ScalarField } from './src/ScalarField.mjs'
+import { Polynomial } from './src/Polynomial.mjs'
 
 const field = new ScalarField(3221225473n, 5n)
 
