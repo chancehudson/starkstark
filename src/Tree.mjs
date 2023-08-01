@@ -16,7 +16,7 @@ export class MerkleTree {
     return BigInt(`0x${hash.digest('hex')}`)
   }
 
-  build(leaves) {
+  static build(leaves) {
     const levels = [leaves]
     const levelCount = Math.ceil(Math.log2(leaves.length))
     for (let x = 0; x < levelCount; x++) {
@@ -33,12 +33,12 @@ export class MerkleTree {
   }
 
   // calculate the root for an array of leaves
-  commit(leaves) {
+  static commit(leaves) {
     // check that length of leaves is a power of 2
     return this.build(leaves).pop()[0]
   }
 
-  open(_index, leaves) {
+  static open(_index, leaves) {
     const tree = this.build(leaves)
     if (_index > tree[0].length) throw new Error('Invalid index')
     const path = []
@@ -60,7 +60,7 @@ export class MerkleTree {
     }
   }
 
-  verify(root, _index, path, leaves) {
+  static verify(root, _index, path, leaves) {
     let index = _index
     const _root = this.commit(leaves)
     let calculatedRoot = leaves[index]

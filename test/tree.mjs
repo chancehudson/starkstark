@@ -15,36 +15,33 @@ const hashRoot = (elements) => {
 }
 
 test('should hash elements', t => {
-  const tree = new MerkleTree()
   const elements = Array(10)
     .fill()
     .map((_, i) => BigInt(i))
-  t.is(hashRoot(elements), tree.commit(elements))
+  t.is(hashRoot(elements), MerkleTree.commit(elements))
 })
 
 test('should change hash when elements change', t => {
-  const tree = new MerkleTree()
   const elements = Array(11)
     .fill()
     .map((_, i) => BigInt(i))
   const seenRoots = {}
-  seenRoots[tree.commit(elements)] = true
+  seenRoots[MerkleTree.commit(elements)] = true
   for (let x = 0; x < elements.length; x++) {
     elements[x] = 1000n + BigInt(x)
-    const root = tree.commit(elements)
+    const root = MerkleTree.commit(elements)
     t.falsy(seenRoots[root])
     seenRoots[root] = true
   }
 })
 
 test('should open/verify a commitment', t => {
-  const tree = new MerkleTree()
   const elements = Array(11)
     .fill()
     .map((_, i) => BigInt(i))
   for (let x = 0; x < elements.length; x++) {
-    const { path, root } = tree.open(x, elements)
-    tree.verify(root, x, path, elements)
+    const { path, root } = MerkleTree.open(x, elements)
+    MerkleTree.verify(root, x, path, elements)
   }
   t.pass()
 })
