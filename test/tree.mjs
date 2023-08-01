@@ -41,7 +41,7 @@ test('should open/verify a commitment', t => {
     .map((_, i) => BigInt(i))
   for (let x = 0; x < elements.length; x++) {
     const { path, root } = MerkleTree.open(x, elements)
-    MerkleTree.verify(root, x, path, elements)
+    MerkleTree.verify(root, x, path, elements[x])
   }
   t.pass()
 })

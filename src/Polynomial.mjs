@@ -206,13 +206,13 @@ export class Polynomial {
 
   // if a divide by zero occurs there is likely a duplicate x value
   static lagrange(xValues, yValues, field) {
-    // const xMap = xValues.reduce((acc, v, i) => ({
-    //   ...acc,
-    //   [v]: [...(acc[v.toString()] ?? []), i],
-    // }), {})
-    // for (const v of xValues) {
-    //   if (xMap[v.toString()].length > 1) throw new Error('Duplicate x value')
-    // }
+    const xMap = xValues.reduce((acc, v, i) => ({
+      ...acc,
+      [v]: [...(acc[v.toString()] ?? []), i],
+    }), {})
+    for (const v of xValues) {
+      if (xMap[v.toString()].length > 1) throw new Error(`Duplicate x value: ${v}`)
+    }
     if (xValues.length !== yValues.length) throw new Error('Mismatched input lengths')
 
     const numerator = new Polynomial(field)
@@ -312,6 +312,14 @@ export class Polynomial {
       out[i+left.length] = this.field.sub(x, yRoot)
     }
     return out
+  }
+
+  static testColinearity(points, field) {
+    const domain = points.map(p => p[0])
+    const values = points.map(p => p[1])
+
+    const poly = Polynomial.lagrange(domain, values, field)
+    return poly.degree() <= 1
   }
 
 }

@@ -1,4 +1,5 @@
 import { MerkleTree } from './Tree.mjs'
+import { Polynomial } from './Polynomial.mjs'
 import { createHash } from 'crypto'
 
 export class FRI {
@@ -22,9 +23,10 @@ export class FRI {
   }
 
   roundCount() {
-    const codewordLength = this.domainLength
-    const numRounds = 0
-    while (codewordLength > this.expansionFactor && 4 * this.colinearityTestCount < codewordLength) {
+    let codewordLength = this.domainLength
+    let numRounds = 0
+    while (codewordLength > Number(this.expansionFactor) && 4 * this.colinearityTestCount < codewordLength) {
+      // should be an even mutliple of 2
       codewordLength /= 2
       numRounds++
     }
@@ -50,17 +52,18 @@ export class FRI {
   prove(codeword, proofStream) {
     if (this.domainLength !== codeword.length) throw new Error('initial codeword length mismatch')
     const codewords = this.commit(codeword, proofStream)
-    const topInidices = this.sampleIndices(
+    const topIndices = this.sampleIndices(
       proofStream.proverHash(),
       codewords[1].length,
       codewords[codewords.length - 1].length,
       this.colinearityTestCount
     )
-    let indices = Array(topInidices.length).fill()
-    for (let x = 0; x < codewords.length -1; x++) {
-      indices = indices.map((index) => index % (codewords[index].length / 2n))
+    let indices = [...topIndices]
+    for (let x = 0; x < codewords.length - 1; x++) {
+      indices = indices.map((index) => index % BigInt(codewords[x].length >> 1))
       this.query(codewords[x], codewords[x+1], indices, proofStream)
     }
+    return topIndices
   }
 
   commit(_codeword, proofStream) {
@@ -81,17 +84,17 @@ export class FRI {
       // of points from a polynomial of half the degree
       // of the previous codewords, similar to a FFT
       const alpha = f.sample(proofStream.proverHash())
-      codeword = codeword.map((v, i) => {
-        // two.inverse() * ( (one + alpha / (offset * (omega^i)) ) * codeword[i]
-        const a1 = f.mul(twoInv, f.add(1n, f.div(alpha, f.mul(offset, f.exp(omega, i)))))
-        const a2 = f.mul(a1, v)
+      codeword = codeword.slice(0, codeword.length >> 1).map((v, i) => {
+        const invOmega = f.inv(f.mul(offset, f.exp(omega, BigInt(i))))
+        // ( (one + alpha / (offset * (omega^i)) ) * codeword[i]
+        const a = f.mul(v, f.add(1n, f.mul(alpha, invOmega)))
 
         //  (one - alpha / (offset * (omega^i)) ) * codeword[len(codeword)//2 + i] ) for i in range(len(codeword)//2)]
         const b = f.mul(
-          f.sub(1n, f.div(alpha, f.mul(offset, f.exp(omega, i)))),
-          codeword[codeword.length >> 1 + i] // using >> for floored division by 2
+          f.sub(1n, f.mul(alpha, invOmega)),
+          codeword[(codeword.length >> 1) + i] // using >> for floored division by 2
         )
-        return f.add(a2, b)
+        return f.mul(twoInv, f.add(a, b))
       })
 
       omega = f.exp(omega, 2n)
@@ -104,7 +107,7 @@ export class FRI {
 
   query(currentCodeword, nextCodeword, indicesC, proofStream) {
     const indicesA = [...indicesC]
-    const indicesB = indicesC.map(v => v + currentCodeword.length >> 1)
+    const indicesB = indicesC.map(v => v + BigInt(currentCodeword.length >> 1))
 
     for (let s = 0; s < this.colinearityTestCount; s++) {
       proofStream.push({
@@ -123,11 +126,13 @@ export class FRI {
   }
 
   sampleIndex(bytes, size) {
-    let acc = 0n
-    for (const b of bytes) {
-      acc = (acc << 8) ^ b
-    }
-    return acc % size
+    return bytes % BigInt(size)
+  }
+
+  bigintHex(i) {
+    let s = i.toString(16)
+    if (s.length % 2 === 1) s = `0${s}`
+    return s
   }
 
   sampleIndices(seed, size, reducedSize, count) {
@@ -139,11 +144,12 @@ export class FRI {
     let counter = 0
     while (indices.length < count) {
       const hash = createHash('sha256')
-      hash.update(seed.toString(16), 'hex')
-      hash.update(BigInt(counter).toString(16), 'hex')
+      const seedStr = this.bigintHex(seed)
+      hash.update(seedStr, 'hex')
+      hash.update(this.bigintHex(BigInt(counter)), 'hex')
       const v = BigInt(`0x${hash.digest('hex')}`)
       const index = this.sampleIndex(v, size)
-      const reducedIndex = index % reducedSize
+      const reducedIndex = index % BigInt(reducedSize)
       counter++
       if (reducedIndices.indexOf(reducedIndex) === -1) {
         indices.push(index)
@@ -153,7 +159,7 @@ export class FRI {
     return indices
   }
 
-  verify(proofStream, polynomialValues) {
+  verify(proofStream, polynomialValues = []) {
     let omega = this.omega
     let offset = this.offset
 
@@ -170,7 +176,7 @@ export class FRI {
       throw new Error('last codeword root mismatch')
     }
 
-    const degree = Math.floor(lastCodeword.length / this.expansionFactor) - 1
+    const degree = Math.floor(lastCodeword.length / Number(this.expansionFactor)) - 1
     let lastOmega = omega
     let lastOffset = offset
     for (let x = 0; x < this.roundCount() - 1; x++) {
@@ -184,7 +190,10 @@ export class FRI {
     const lastDomain = lastCodeword.map((_, i) => this.field.mul(lastOffset, this.field.exp(lastOmega, BigInt(i))))
     const poly = Polynomial.lagrange(lastDomain, lastCodeword, this.field)
 
-    // TODO: re-evaluate the polynomial to check lastCodeword consistency
+    // re-evaluate the polynomial to check lastCodeword consistency
+    for (let x = 0; x < lastDomain.length; x++) {
+      if (poly.evaluate(lastDomain[x]) !== lastCodeword[x]) throw new Error('Inconsistent interpolated polynomial')
+    }
 
     if (poly.degree() > BigInt(degree)) {
       throw new Error('last codeword does not correspond to a polynomial of low enough degree')
@@ -198,9 +207,9 @@ export class FRI {
     )
 
     for (let x = 0; x < this.roundCount() - 1; x++) {
-      const indicesC = topLevelIndices.map(index => index % BigInt((this.domainLength >> (x+1))))
+      const indicesC = topLevelIndices.map(index => index % BigInt(this.domainLength >> (x+1)))
       const indicesA = [...indicesC]
-      const indicesB = indicesA.map((index) => index + BigInt(self.domainLength >> (x+1)))
+      const indicesB = indicesA.map((index) => index + BigInt(this.domainLength >> (x+1)))
 
       let aa = []
       let bb = []
@@ -212,7 +221,7 @@ export class FRI {
         bb.push(by)
         cc.push(cy)
         if (x === 0) {
-          polynomialValues.push([aIndices[s], a])
+          polynomialValues.push([indicesA[s], ay])
         }
 
         const ax = this.field.mul(offset, this.field.exp(omega, indicesA[s]))
@@ -220,7 +229,9 @@ export class FRI {
         const cx = alphas[x]
 
         // test colinearity of these points
-
+        if (!Polynomial.testColinearity([[ax, ay], [bx, by], [cx, cy]], this.field)) {
+          throw new Error('points are not colinear')
+        }
       }
 
       // then verify merkle paths

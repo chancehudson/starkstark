@@ -40,9 +40,9 @@ export class MerkleTree {
 
   static open(_index, leaves) {
     const tree = this.build(leaves)
-    if (_index > tree[0].length) throw new Error('Invalid index')
+    let index = Number(_index)
+    if (index > tree[0].length) throw new Error('Invalid index')
     const path = []
-    let index = _index
     for (let x = 0; x < tree.length-1; x++) {
       const siblingIndex = index % 2 === 0 ? index + 1 : index - 1
       const sibling = tree[x][siblingIndex]
@@ -60,18 +60,17 @@ export class MerkleTree {
     }
   }
 
-  static verify(root, _index, path, leaves) {
-    let index = _index
-    const _root = this.commit(leaves)
-    let calculatedRoot = leaves[index]
+  static verify(root, _index, path, leaf) {
+    let index = Number(_index)
+    let calculatedRoot = leaf
     for (const p of path) {
       const nodeIndex = index % 2 === 0 ? 0 : 1
       if (p[nodeIndex] !== calculatedRoot) throw new Error('Invalid intermediate root')
       calculatedRoot = MerkleTree._hash(p)
       index >>= 1
     }
-    if (calculatedRoot !== _root) throw new Error('Root mismatch')
-    if (_root !== root) throw new Error('Supplied root mismatch')
+    if (calculatedRoot !== root) throw new Error('Root mismatch')
+    return true
   }
 
 }

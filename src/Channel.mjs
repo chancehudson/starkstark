@@ -24,7 +24,7 @@ export class Channel {
     const hash = createHash('sha256')
     for (const m of this.messages.slice(0, to)) {
       hash.update(
-        JSON.stringify(msg, (_, v) => typeof v === 'bigint' ? v.toString() : v)
+        JSON.stringify(m, (_, v) => typeof v === 'bigint' ? v.toString() : v)
       )
     }
     return BigInt(`0x${hash.digest('hex')}`)
