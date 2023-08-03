@@ -16,9 +16,9 @@ export class MultiPolynomial {
   }
 
   isEqual(poly) {
-    if (poly.expMap.size() !== this.expMap.size()) return false
+    if (poly.expMap.size !== this.expMap.size) return false
     for (const [exps, p1] of poly.expMap) {
-      const p2 = this.expMap.get(key)
+      const p2 = this.expMap.get(exps)
       if (p1 !== p2) return false
     }
     return true
@@ -58,6 +58,18 @@ export class MultiPolynomial {
       }
     }
     this.expMap = newExp
+    return this
+  }
+
+  neg() {
+    for (const [exp, coef] of this.expMap.entries()) {
+      this.expMap.set(exp, this.field.mul(-1n, coef))
+    }
+    return this
+  }
+
+  sub(poly) {
+    this.add(poly.neg())
     return this
   }
 

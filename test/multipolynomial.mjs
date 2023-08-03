@@ -120,3 +120,41 @@ test('should multiply two multipolynomials', t => {
     t.is(out1, out2)
   }
 })
+
+test('should negate a multipolynomial', t => {
+  const f = new ScalarField(101n)
+  const m = new MultiPolynomial(f)
+    .term({ coef: 2n, exps: { 0: 3n }})
+    .term({ coef: 4n, exps: { 0: 1n }})
+    .term({ coef: 3n, exps: { 0: 0n }})
+
+  const mNeg = new MultiPolynomial(f)
+    .term({ coef: -2n, exps: { 0: 3n }})
+    .term({ coef: -4n, exps: { 0: 1n }})
+    .term({ coef: -3n, exps: { 0: 0n }})
+
+  t.true(m.neg().isEqual(m))
+})
+
+test('should subtract two multipolynomials', t => {
+  const f = new ScalarField(101n)
+  const m1 = new MultiPolynomial(f)
+    .term({ coef: 2n, exps: { 0: 3n }})
+    .term({ coef: 4n, exps: { 0: 1n }})
+    .term({ coef: 3n, exps: { 0: 0n }})
+    .term({ coef: 9n, exps: { 1: 2n }})
+
+  const m2 = new MultiPolynomial(f)
+    .term({ coef: 3n, exps: { 0: 2n }})
+    .term({ coef: 9n, exps: { 0: 1n }})
+    .term({ coef: 2n, exps: { 1: 2n }})
+
+  const expected = new MultiPolynomial(f)
+    .term({ coef: 2n, exps: { 0: 3n }})
+    .term({ coef: -3n, exps: { 0: 2n }})
+    .term({ coef: -5n, exps: { 0: 1n }})
+    .term({ coef: 3n, exps: { 0: 0n }})
+    .term({ coef: 7n, exps: { 1: 2n }})
+
+  t.true(m1.sub(m2).isEqual(expected))
+})
