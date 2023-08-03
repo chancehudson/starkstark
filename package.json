@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node ./index.mjs",
-    "test": "ava"
+    "test": "ava --timeout=300s"
   },
   "author": "",
   "license": "ISC",

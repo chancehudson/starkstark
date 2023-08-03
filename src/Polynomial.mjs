@@ -182,12 +182,16 @@ export class Polynomial {
   // TODO: see if this there is an O(log) implementation
   exp(e) {
     if (e === 0n) {
-      this.terms = [{ coef: 1n, exp: 0n }]
+      const p = new Polynomial(this.field)
+        .term({ coef: 1n, exp: 0n })
+      this.terms = p.terms
       return this
     }
+    const t = this.copy()
     for (let x = 1n; x < e; x++) {
-      this.mul(this)
+      t.mul(this)
     }
+    this.terms = t.terms
     return this
   }
 
@@ -201,6 +205,14 @@ export class Polynomial {
       out.add(p)
     }
     this.terms = out.terms
+    return this
+  }
+
+  scale(val) {
+    this.terms = this.terms.map(({ coef, exp }) => ({
+      coef: this.field.mul(this.field.exp(val, exp), coef),
+      exp,
+    }))
     return this
   }
 
@@ -320,6 +332,17 @@ export class Polynomial {
 
     const poly = Polynomial.lagrange(domain, values, field)
     return poly.degree() <= 1
+  }
+
+  static zeroifierDomain(domain, field) {
+    const x = new Polynomial(field)
+      .term({ coef: 1n, exp: 1n })
+    const acc = new Polynomial(field)
+      .term({ coef: 1n, exp: 0n })
+    for (const d of domain) {
+      acc.mul(x.copy().term({ coef: d, exp: 0n }))
+    }
+    return acc
   }
 
 }

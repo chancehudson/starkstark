@@ -1,6 +1,9 @@
 import { Polynomial } from './Polynomial.mjs'
 import { ScalarField } from './ScalarField.mjs'
 
+// TODO: trim trailing zeroes in keys to prevent collisions
+// without constant size keys
+
 export class MultiPolynomial {
 
   constructor(field) {
@@ -25,8 +28,8 @@ export class MultiPolynomial {
   }
 
   copy() {
-    const c = new MultiPolynomial()
-    for (const [key, p] of this.entries()) {
+    const c = new MultiPolynomial(this.field)
+    for (const [key, p] of this.expMap.entries()) {
       c.expMap.set(key, p)
     }
     return c
@@ -86,6 +89,22 @@ export class MultiPolynomial {
       out = this.field.add(out, inter)
     }
     return out
+  }
+
+  evaluateSymbolic(polys) {
+    const acc = new Polynomial(this.field)
+    for (const [_exp, coef] of this.expMap.entries()) {
+      const prod = new Polynomial(this.field)
+        .term({ coef: coef, exp: 0n })
+      const exp = MultiPolynomial.expStringToVector(_exp)
+      for (let x = 0; x < exp.length; x++) {
+        if (exp[x] === 0n) continue
+        if (polys.length < x) throw new Error(`No point defined for variable ${x}`)
+        prod.mul(polys[x].copy().exp(BigInt(exp[x])))
+      }
+      acc.add(prod)
+    }
+    return acc
   }
 
   // exps should be a mapping of numbers to numbers
