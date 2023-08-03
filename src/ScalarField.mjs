@@ -1,3 +1,5 @@
+import randomf from 'randomf'
+
 // a finite field with cardinality p
 
 export class ScalarField {
@@ -85,6 +87,10 @@ export class ScalarField {
       x = t
     }
     return this.mod(x)
+  }
+
+  random() {
+    return randomf(this.p, false)
   }
 }
 
