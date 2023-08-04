@@ -11,7 +11,6 @@ export class STARK {
       field,
       expansionFactor,
       colinearityTestCount,
-      domainLength,
       offset,
       securityLevel, // lambda
       registerCount,
@@ -53,7 +52,7 @@ export class STARK {
         const exps = _exps.split(',').map(v => BigInt(v))
         let sum = 0n
         for (let x = 0; x < pointDegrees.length; x++) {
-          sum += exps[x] * BigInt(pointDegrees[x])
+          sum += (exps[x] ?? 0n) * BigInt(pointDegrees[x])
         }
         if (sum > largest) largest = sum
       }
@@ -67,7 +66,7 @@ export class STARK {
   }
 
   maxDegree(transitionConstraints) {
-    const max = this.transitionQuotientDegreeBounds(transitionConstraints).reduce((v, acc) => v > acc ? v : acc, 0n)
+    const max = this.transitionQuotientDegreeBounds(transitionConstraints).reduce((acc, v) => v > acc ? v : acc, 0n)
     return (1n << BigInt(max.toString(2).length)) - 1n
   }
 
@@ -109,8 +108,8 @@ export class STARK {
   }
 
   boundaryQuotientDegreeBounds(randomizedTraceLength, boundary) {
-    const randomizedTraceDegree = randomizedTraceLength - 1
-    return this.boundaryZeroifiers(boundary).map(z => BigInt(randomizedTraceDegree) - z.degree())
+    const randomizedTraceDegree = BigInt(randomizedTraceLength) - 1n
+    return this.boundaryZeroifiers(boundary).map(z => randomizedTraceDegree - z.degree())
   }
 
   bigintHex(i) {
@@ -149,6 +148,7 @@ export class STARK {
     for (let x = 0; x < this.registerCount; x++) {
       const interpolant = this.boundaryInterpolants(boundary)[x]
       const zeroifier = this.boundaryZeroifiers(boundary)[x]
+      console.log(zeroifier)
       const { q: quotient } = tracePolynomials[x].copy().sub(interpolant).div(zeroifier)
       boundaryQuotients.push(quotient)
     }
@@ -166,9 +166,9 @@ export class STARK {
     const pX = new Polynomial(this.field)
       .term({ coef: 1n, exp: 1n })
     const point = [
-      pX,
+      pX.copy(),
       ...tracePolynomials,
-      ...tracePolynomials.map(p => p.scale(this.omicron))
+      ...tracePolynomials.map(p => p.copy().scale(this.omicron))
     ]
     const transitionPolynomials = transitionConstraints.map(c => c.evaluateSymbolic(point))
     const transitionQuotients = transitionPolynomials.map(p => p.copy().div(this.transitionZeroifier()).q)
@@ -202,7 +202,7 @@ export class STARK {
       terms.push(pX.copy().exp(BigInt(shift)).mul(boundaryQuotients[x]))
     }
 
-    const combination = terms.reduce((term, acc, i) => {
+    const combination = terms.reduce((acc, term, i) => {
       return acc.add(term.copy().mulScalar(weights[i]))
     }, new Polynomial(this.field))
 
@@ -228,4 +228,131 @@ export class STARK {
 
     return proofStream.messages
   }
+
+  verify(proof, transitionConstraints, boundary, proofStream) {
+    if (!proofStream) {
+      proofStream = new Channel()
+    }
+    // TODO
+    // proofStream.deserialize(proof)
+
+    const originalTraceLength = 1n + (boundary.reduce((acc, [c]) => {
+      return c > acc ? c : acc
+    }, 0n))
+
+    const randomizedTraceLength = originalTraceLength + BigInt(this.randomizerCount)
+
+    const boundaryQuotientRoots = []
+    for (let x = 0; x < this.registerCount; x++) {
+      boundaryQuotientRoots.push(proofStream.pull())
+    }
+
+    const randomizerRoot = proofStream.pull()
+
+    const weights = this.sampleWeights(
+      1 + 2*transitionConstraints.length + 2*this.boundaryInterpolants(boundary).length,
+      proofStream.verifierHash()
+    )
+
+    const polynomialValues = []
+    let verifierAccepts = this.fri.verify(proofStream, polynomialValues)
+    if (!verifierAccepts) {
+      throw new Error('FRI verification failed')
+    }
+
+    // TODO
+    // polynomialValues.sort()
+
+    const indices = polynomialValues.map(([v]) => v)
+    const values = polynomialValues.map(([,v]) => v)
+
+    const duplicateIndices = [
+      indices,
+      indices.map(i => (i + BigInt(this.expansionFactor)) % this.friDomainLength)
+    ].flat()
+
+    const leaves = []
+    for (let x = 0; x < boundaryQuotientRoots.length; x++) {
+      leaves.push({})
+      for (const i of duplicateIndices) {
+        leaves[x][i] = proofStream.pull()
+        const path = proofStream.pull()
+        verifierAccepts = verifierAccepts && MerkleTree.verify(boundaryQuotientRoots[x], i, path, leaves[x][i])
+        if (!verifierAccepts) {
+          throw new Error('Invalid boundary proof')
+        }
+      }
+    }
+
+    const randomizer = {}
+    for (const i of indices) {
+      randomizer[i] = proofStream.pull()
+      const path = proofStream.pull()
+      verifierAccepts = verifierAccepts && MerkleTree.verify(randomizerRoot, i, path, randomizer[i])
+      if (!verifierAccepts) {
+        throw new Error('Invalid randomizer proof')
+      }
+    }
+
+    for (let x = 0; x < indices.length; x++) {
+      const currentIndex = BigInt(indices[x])
+      console.log(currentIndex)
+      const domainCurrentIndex = this.field.mul(this.field.g, this.field.exp(this.omega, currentIndex))
+      const nextIndex = (currentIndex + BigInt(this.expansionFactor)) % BigInt(this.friDomainLength)
+      const domainNextIndex = this.field.mul(this.field.g, this.field.exp(this.omega, nextIndex))
+      const currentTrace = Array(this.registerCount).fill(0n)
+      const nextTrace = Array(this.registerCount).fill(0n)
+      for (let y = 0; y < this.registerCount; y++) {
+        const zeroifier = this.boundaryZeroifiers(boundary)[y]
+        const interpolant = this.boundaryInterpolants(boundary)[y]
+
+        currentTrace[y] = this.field.add(
+          this.field.mul(leaves[y][Number(currentIndex)], zeroifier.evaluate(domainCurrentIndex)),
+          interpolant.evaluate(domainCurrentIndex)
+        )
+        nextTrace[y] = this.field.add(
+          this.field.mul(leaves[y][Number(nextIndex)], zeroifier.evaluate(domainNextIndex)),
+          interpolant.evaluate(domainNextIndex)
+        )
+      }
+      const point = [
+        domainCurrentIndex,
+        ...currentTrace,
+        ...nextTrace
+      ]
+      const transitionConstraintsValues = transitionConstraints.map(p => p.evaluate(point))
+
+      let counter = 0
+      const terms = [randomizer[currentIndex]]
+      for (let y = 0; y < transitionConstraintsValues.length; y++) {
+        const tcv = transitionConstraintsValues[y]
+        // is this a scalar???
+        const q = this.field.div(tcv, this.transitionZeroifier().evaluate(domainCurrentIndex))
+        terms.push(q)
+        const shift = this.maxDegree(transitionConstraints) - this.transitionQuotientDegreeBounds(transitionConstraints)[y]
+        terms.push(this.field.mul(q, this.field.exp(domainCurrentIndex, BigInt(shift))))
+      }
+      for (let y = 0; y < this.registerCount; y++) {
+        const bqv = leaves[y][currentIndex]
+        terms.push(bqv)
+        const shift = this.maxDegree(transitionConstraints) - this.boundaryQuotientDegreeBounds(randomizedTraceLength, boundary)[y]
+        terms.push(this.field.mul(bqv, this.field.exp(domainCurrentIndex, BigInt(shift))))
+      }
+      if (terms.length !== weights.length) {
+        throw new Error('terms/weights length mismatch')
+      }
+      const combination = terms.reduce((acc, t, i) => {
+        return this.field.add(this.field.mul(t, weights[i]), acc)
+      }, 0n)
+      console.log(terms.length, weights.length)
+      console.log(combination, values[x])
+
+      verifierAccepts = verifierAccepts && (combination === values[x])
+      if (!verifierAccepts) {
+        throw new Error('Invalid combination value')
+      }
+    }
+    return true
+  }
 }
+

@@ -55,6 +55,7 @@ export class Polynomial {
   div(divisor) {
     // divisor must have degree less than `this`
     if (divisor.terms.length === 0) throw new Error('Divide by 0')
+    if (divisor.terms.length === 1 && divisor.terms[0].coef === 1n && divisor.terms[0].exp === 0n) return { q: this, r: new Polynomial(this.field) }
     const outTerms = []
     const divisorTerm = divisor.sortedTerms.pop()
     const interPoly = this.copy()

@@ -253,6 +253,6 @@ export class FRI {
       omega = this.field.exp(omega, 2n)
       offset = this.field.exp(offset, 2n)
     }
-
+    return true
   }
 }

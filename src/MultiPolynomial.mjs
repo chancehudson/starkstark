@@ -1,9 +1,6 @@
 import { Polynomial } from './Polynomial.mjs'
 import { ScalarField } from './ScalarField.mjs'
 
-// TODO: trim trailing zeroes in keys to prevent collisions
-// without constant size keys
-
 export class MultiPolynomial {
 
   constructor(field) {
@@ -50,8 +47,8 @@ export class MultiPolynomial {
       for (const [exp2, coef2] of this.expMap.entries()) {
         const exponents2 = MultiPolynomial.expStringToVector(exp2)
         const finalExponents = []
-        for (let x = 0; x < exponents1.length; x++) {
-          finalExponents.push(exponents1[x] + exponents2[x])
+        for (let x = 0; x < Math.max(exponents1.length, exponents2.length); x++) {
+          finalExponents.push((exponents1[x] ?? 0n) + (exponents2[x] ?? 0n))
         }
         const expFinal = MultiPolynomial.expVectorToString(finalExponents)
         newExp.set(
@@ -99,8 +96,8 @@ export class MultiPolynomial {
       const exp = MultiPolynomial.expStringToVector(_exp)
       for (let x = 0; x < exp.length; x++) {
         if (exp[x] === 0n) continue
-        if (polys.length < x) throw new Error(`No point defined for variable ${x}`)
-        prod.mul(polys[x].copy().exp(BigInt(exp[x])))
+        if (x >= polys.length) throw new Error(`No point defined for variable ${x}`)
+        prod.mul(polys[x].copy().exp(exp[x]))
       }
       acc.add(prod)
     }
@@ -111,8 +108,12 @@ export class MultiPolynomial {
   // varialbe index to power
   term({ coef, exps }) {
     const vec = []
-    for (let x = 0; x < MultiPolynomial.MAX_VARS; x++) {
-      vec.push(exps[x] ?? 0n)
+    for (const key of Object.keys(exps)) {
+        const i = Number(key)
+        if (vec.length < i) {
+          vec.push(...Array(i-vec.length).fill(0))
+        }
+        vec[i] = exps[key]
     }
     const exp = MultiPolynomial.expVectorToString(vec)
     this.expMap.set(
@@ -131,14 +132,19 @@ export class MultiPolynomial {
     return m
   }
 
-  static MAX_VARS = 1024
-
   static expStringToVector(s) {
     return s.split(',').map(v => BigInt(v))
   }
 
   static expVectorToString(vec) {
-    if (vec.length > this.MAX_VARS) throw new Error('Too many exponent vectors')
-    return [...vec, ...Array(this.MAX_VARS - vec.length).fill(0)].join(',')
+    // trim trailing zeroes
+    let lastIndex = vec.length
+    for (let x = vec.length; x >= 0; --x) {
+      if (vec[x] === 0n) lastIndex = x
+    }
+    return vec.slice(0, Math.max(lastIndex, 1)).join(',')
+  // console.log(vec.slice(0, Math.max(lastIndex, 1))
+  //   if (vec.length > this.MAX_VARS) throw new Error('Too many exponent vectors')
+  //   return [...vec, ...Array(this.MAX_VARS - vec.length).fill(0)].join(',')
   }
 }
