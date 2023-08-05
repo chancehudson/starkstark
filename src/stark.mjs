@@ -128,10 +128,12 @@ export class STARK {
     })
   }
 
-  prove(trace, transitionConstraints, boundary, proofStream) {
-    if (!proofStream) {
-      proofStream = new Channel()
-    }
+  prove(_trace, transitionConstraints, boundary) {
+    // deep copy the trace to avoid mutating
+    const trace = _trace.map(t => [...t])
+
+    const proofStream = new Channel()
+
     for (let x = 0; x < this.randomizerCount; x++) {
       trace.push(Array(this.registerCount).fill().map(() => this.field.random()))
     }
@@ -221,7 +223,7 @@ export class STARK {
     ]
     const quadrupledIndices = [
       ...duplicateIndices,
-      ...duplicateIndices.map(v => v+BigInt(this.friDomainLength>>1n) % BigInt(this.friDomainLength))
+      ...duplicateIndices.map(v => (v+BigInt(this.friDomainLength>>1n)) % BigInt(this.friDomainLength))
     ]
     quadrupledIndices.sort((a, b) => a > b ? 1 : -1)
 
@@ -238,15 +240,11 @@ export class STARK {
       proofStream.push(path)
     }
 
-    return proofStream.messages
+    return proofStream.serialize()
   }
 
-  verify(proof, transitionConstraints, boundary, proofStream) {
-    if (!proofStream) {
-      proofStream = new Channel()
-    }
-    // TODO
-    // proofStream.deserialize(proof)
+  verify(proof, transitionConstraints, boundary) {
+    const proofStream = Channel.deserialize(proof)
 
     const originalTraceLength = 1n + (boundary.reduce((acc, [c]) => {
       return c > acc ? c : acc

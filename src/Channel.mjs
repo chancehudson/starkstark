@@ -37,4 +37,17 @@ export class Channel {
   verifierHash() {
     return this.hash(this.readIndex)
   }
+
+  serialize() {
+    return JSON.stringify(this.messages, (_, v) => typeof v === 'bigint' ? `0x${v.toString(16)}` : v)
+  }
+
+  static deserialize(proof) {
+    const c = new this()
+    c.messages = JSON.parse(proof, (_, v) => {
+      if (typeof v === 'string' && /^0x[a-fA-F0-9]+$/.test(v)) return BigInt(v)
+      return v
+    })
+    return c
+  }
 }

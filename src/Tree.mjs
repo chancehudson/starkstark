@@ -41,7 +41,7 @@ export class MerkleTree {
   static open(_index, leaves) {
     const tree = this.build(leaves)
     let index = Number(_index)
-    if (index > tree[0].length) throw new Error('Invalid index')
+    if (index > leaves.length) throw new Error(`Invalid index, received ${_index} max ${leaves.length}`)
     const path = []
     for (let x = 0; x < tree.length-1; x++) {
       const siblingIndex = index % 2 === 0 ? index + 1 : index - 1
