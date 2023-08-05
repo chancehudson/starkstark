@@ -119,7 +119,6 @@ export class STARK {
   }
 
   sampleWeights(count, randomness) {
-    return Array(count).fill(0).map((_, i) => BigInt(i) + 122819n)
     return Array(count).fill().map((_, i) => {
       const hash = createHash('sha256')
       const seedStr = this.bigintHex(randomness)
@@ -134,8 +133,7 @@ export class STARK {
       proofStream = new Channel()
     }
     for (let x = 0; x < this.randomizerCount; x++) {
-      // trace.push(Array(this.registerCount).fill().map(() => this.field.random()))
-      trace.push([180849168944n])
+      trace.push(Array(this.registerCount).fill().map(() => this.field.random()))
     }
 
     // interpolate trace to get the trace polynomials
@@ -178,8 +176,7 @@ export class STARK {
 
     const randomizerPolynomial = new Polynomial(this.field)
     for (let x = 0n; x < this.maxDegree(transitionConstraints) + 1n; x++) {
-      // randomizerPolynomial.term({ coef: this.field.random(), exp: x })
-      randomizerPolynomial.term({ coef: x+10n, exp: x })
+      randomizerPolynomial.term({ coef: this.field.random(), exp: x })
     }
 
     const randomizerCodeword = randomizerPolynomial.evaluateFFT(friDomain)
