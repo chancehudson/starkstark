@@ -24,8 +24,12 @@ export class Polynomial {
 
   copy() {
     const p = new Polynomial(this.field)
-    p.terms = [...this.terms]
+    p.terms = this.terms.map(t => ({...t}))
     return p
+  }
+
+  static one(f) {
+    return new this(f).term({ coef: 1n, exp: 0n })
   }
 
   mul(poly) {
@@ -50,6 +54,12 @@ export class Polynomial {
     }))
     // TODO: do we need to consolidate here?
     return this
+  }
+
+  safediv(divisor) {
+    const { q, r } = this.div(divisor)
+    if (!r.isZero()) throw new Error('non-zero remainder')
+    return q
   }
 
   div(divisor) {
@@ -123,18 +133,23 @@ export class Polynomial {
   }
 
   _consolidate() {
-    const expCoefMap = {}
+    const expCoefMap = new Map()
     for (const t of this.terms) {
-      if (!expCoefMap[t.exp]) {
-        expCoefMap[t.exp] = 0n
+      if (typeof t.exp !== 'bigint') throw new Error('invalid exp')
+      if (typeof t.coef !== 'bigint') throw new Error('invalid coef')
+      if (!expCoefMap.has(t.exp)) {
+        expCoefMap.set(t.exp, 0n)
       }
-      expCoefMap[t.exp] = this.field.add(expCoefMap[t.exp], t.coef)
+      expCoefMap.set(
+        t.exp,
+        this.field.add(expCoefMap.get(t.exp), t.coef)
+      )
     }
     const terms = []
-    for (const exp of Object.keys(expCoefMap)) {
-      if (expCoefMap[exp] === 0n) continue
+    for (const exp of expCoefMap.keys()) {
+      if (expCoefMap.get(exp) === 0n) continue
       terms.push({
-        coef: expCoefMap[exp],
+        coef: expCoefMap.get(exp),
         exp: BigInt(exp),
       })
     }
@@ -188,9 +203,14 @@ export class Polynomial {
       this.terms = p.terms
       return this
     }
-    const t = this.copy()
-    for (let x = 1n; x < e; x++) {
-      t.mul(this)
+    const t = new Polynomial(this.field)
+      .term({ coef: 1n, exp: 0n })
+    const a = Array(BigInt(e).toString(2).length).fill().map((_, i) => i).reverse()
+    for (const i of a) {
+      t.mul(t)
+      if (((1n << BigInt(i)) & BigInt(e)) !== 0n) {
+        t.mul(this)
+      }
     }
     this.terms = t.terms
     return this
@@ -297,9 +317,17 @@ export class Polynomial {
       .map(v => this.field.mul(v, lenInv))
   }
 
+  evaluateFFT(domain) {
+    const out = []
+    for (const d of domain) {
+      out.push(this.evaluate(d))
+    }
+    return out
+  }
+
   // evaluate `this` at every point in domain
   // domain is an array of values
-  evaluateFFT(domain) {
+  ___evaluateFFT(domain) {
     const coefs = this.coefs
     if (coefs.length < domain.length) coefs.push(...Array(domain.length-coefs.length).fill(0n))
     return this._evaluateFFT(coefs, domain)
@@ -341,7 +369,7 @@ export class Polynomial {
     const acc = new Polynomial(field)
       .term({ coef: 1n, exp: 0n })
     for (const d of domain) {
-      acc.mul(x.copy().term({ coef: d, exp: 0n }))
+      acc.mul(x.copy().term({ coef: field.neg(d), exp: 0n }))
     }
     return acc
   }

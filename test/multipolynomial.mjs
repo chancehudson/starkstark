@@ -121,6 +121,19 @@ test('should multiply two multipolynomials', t => {
   }
 })
 
+test('should multiply two different degree multipolynomials', t => {
+  const f = new ScalarField(101n)
+  const m1 = new MultiPolynomial(f)
+    .term({ coef: 2n, exps: { 1: 1n }})
+
+  const m2 = new MultiPolynomial(f)
+    .term({ coef: 4n, exps: { 2: 1n }})
+
+  const m = new MultiPolynomial(f)
+    .term({ coef: 8n, exps: { 1: 1n, 2: 1n }})
+  t.true(m.isEqual(m1.copy().mul(m2)))
+})
+
 test('should negate a multipolynomial', t => {
   const f = new ScalarField(101n)
   const m = new MultiPolynomial(f)

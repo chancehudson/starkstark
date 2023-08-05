@@ -138,6 +138,7 @@ export class FRI {
   sampleIndices(seed, size, reducedSize, count) {
     if (count > 2*reducedSize) throw new Error('Not enough entropy')
     if (count > reducedSize) throw new Error('cannot sample more indices than available in last codeword')
+      return Array(count).fill().map((_,i ) => BigInt(i + 3))
 
     const indices = []
     const reducedIndices = []
@@ -222,6 +223,7 @@ export class FRI {
         cc.push(cy)
         if (x === 0) {
           polynomialValues.push([indicesA[s], ay])
+          polynomialValues.push([indicesB[s], by])
         }
 
         const ax = this.field.mul(offset, this.field.exp(omega, indicesA[s]))

@@ -92,7 +92,7 @@ export class MultiPolynomial {
     const acc = new Polynomial(this.field)
     for (const [_exp, coef] of this.expMap.entries()) {
       const prod = new Polynomial(this.field)
-        .term({ coef: coef, exp: 0n })
+        .term({ coef, exp: 0n })
       const exp = MultiPolynomial.expStringToVector(_exp)
       for (let x = 0; x < exp.length; x++) {
         if (exp[x] === 0n) continue
@@ -141,6 +141,7 @@ export class MultiPolynomial {
     let lastIndex = vec.length
     for (let x = vec.length; x >= 0; --x) {
       if (vec[x] === 0n) lastIndex = x
+      else break
     }
     return vec.slice(0, Math.max(lastIndex, 1)).join(',')
   // console.log(vec.slice(0, Math.max(lastIndex, 1))

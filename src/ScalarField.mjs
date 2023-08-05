@@ -48,6 +48,8 @@ export class ScalarField {
   // calculate v^e using 2^k-ary method
   // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
   exp(v, e) {
+    if (e < 0n) throw new Error('negative exponent')
+    if (e === 0n) return 1n
     let t = 1n
     while (e > 0n) {
       if (e % 2n !== 0n) t = this.mul(t, v)
@@ -64,6 +66,16 @@ export class ScalarField {
     if (size >= this.p) throw new Error('Subgroup must be smaller than field')
     if (((this.p -1n) % size) !== 0n) throw new Error('Subgroup must be a divisor of the field size')
     return this.exp(this.g, (this.p-1n) / size)
+  }
+
+  primitiveNthRoot(n) {
+    let root = this.g
+    let order = 1n << 119n
+    while (order !== n) {
+      root = this.exp(root, 2n)
+      order = this.div(order, 2n)
+    }
+    return root
   }
 
   inv(d) {

@@ -28,9 +28,9 @@ export class STARK {
     this.friDomainLength = this.omicronDomainLength * BigInt(expansionFactor)
     this.expansionFactor = expansionFactor
 
-    this.omega = this.field.generator(this.friDomainLength)
-    this.omicron = this.field.generator(this.omicronDomainLength)
-    this.omicronDomain = Array(this.omicronDomainLength).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
+    this.omega = this.field.primitiveNthRoot(this.friDomainLength)
+    this.omicron = this.field.primitiveNthRoot(this.omicronDomainLength)
+    this.omicronDomain = Array(Number(this.omicronDomainLength)).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
 
     this.fri = new FRI({
       ...config,
@@ -119,6 +119,7 @@ export class STARK {
   }
 
   sampleWeights(count, randomness) {
+    return Array(count).fill(0).map((_, i) => BigInt(i) + 122819n)
     return Array(count).fill().map((_, i) => {
       const hash = createHash('sha256')
       const seedStr = this.bigintHex(randomness)
@@ -133,9 +134,11 @@ export class STARK {
       proofStream = new Channel()
     }
     for (let x = 0; x < this.randomizerCount; x++) {
-      trace.push(Array(this.registerCount).fill().map(() => this.field.random()))
+      // trace.push(Array(this.registerCount).fill().map(() => this.field.random()))
+      trace.push([180849168944n])
     }
 
+    // interpolate trace to get the trace polynomials
     const traceDomain = Array(trace.length).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
     const tracePolynomials = []
 
@@ -144,18 +147,18 @@ export class STARK {
       tracePolynomials.push(Polynomial.lagrange(traceDomain, singleTrace, this.field))
     }
 
+    // interpolate boundary points to get boundary quotients
     const boundaryQuotients = []
     for (let x = 0; x < this.registerCount; x++) {
       const interpolant = this.boundaryInterpolants(boundary)[x]
       const zeroifier = this.boundaryZeroifiers(boundary)[x]
-      console.log(zeroifier)
-      const { q: quotient } = tracePolynomials[x].copy().sub(interpolant).div(zeroifier)
+      const quotient = tracePolynomials[x].copy().sub(interpolant).safediv(zeroifier)
       boundaryQuotients.push(quotient)
     }
 
+    // commit to the boundary quotients
     const friDomain = this.fri.evalDomain()
     const boundaryQuotientCodewords = []
-    const boundaryQuotientMerkleRoots = []
     for (let x = 0; x < this.registerCount; x++) {
       const codewords = boundaryQuotients[x].evaluateFFT(friDomain)
       boundaryQuotientCodewords.push(codewords)
@@ -171,11 +174,12 @@ export class STARK {
       ...tracePolynomials.map(p => p.copy().scale(this.omicron))
     ]
     const transitionPolynomials = transitionConstraints.map(c => c.evaluateSymbolic(point))
-    const transitionQuotients = transitionPolynomials.map(p => p.copy().div(this.transitionZeroifier()).q)
+    const transitionQuotients = transitionPolynomials.map(p => p.copy().safediv(this.transitionZeroifier()))
 
     const randomizerPolynomial = new Polynomial(this.field)
     for (let x = 0n; x < this.maxDegree(transitionConstraints) + 1n; x++) {
-      randomizerPolynomial.term({ coef: this.field.random(), exp: x })
+      // randomizerPolynomial.term({ coef: this.field.random(), exp: x })
+      randomizerPolynomial.term({ coef: x+10n, exp: x })
     }
 
     const randomizerCodeword = randomizerPolynomial.evaluateFFT(friDomain)
@@ -186,7 +190,6 @@ export class STARK {
 
     const bounds = this.transitionQuotientDegreeBounds(transitionConstraints)
     for (let x = 0; x < bounds.length; x++) {
-      console.log(transitionQuotients[x].degree(), bounds[x])
       if (transitionQuotients[x].degree() !== bounds[x]) throw new Error('transition quotient degrees do not match expected value')
     }
 
@@ -201,27 +204,39 @@ export class STARK {
       const shift = this.maxDegree(transitionConstraints) - this.boundaryQuotientDegreeBounds(trace.length, boundary)[x]
       terms.push(pX.copy().exp(BigInt(shift)).mul(boundaryQuotients[x]))
     }
-
-    const combination = terms.reduce((acc, term, i) => {
-      return acc.add(term.copy().mulScalar(weights[i]))
+    const c = Array(weights.length).fill().map((_, i) => {
+      const wPoly = new Polynomial(this.field).term({
+        coef: weights[i],
+        exp: 0n
+      })
+      return terms[i].copy().mul(wPoly)
+    })
+    const combination = c.reduce((acc, term) => {
+      return acc.add(term)
     }, new Polynomial(this.field))
 
     const combinedCodeword = combination.evaluateFFT(friDomain)
     const indices = this.fri.prove(combinedCodeword, proofStream)
+    indices.sort((a, b) => a > b ? 1 : -1)
     const duplicateIndices = [
       ...indices,
       ...indices.map(i => (i + BigInt(this.expansionFactor)) % BigInt(this.friDomainLength))
     ]
+    const quadrupledIndices = [
+      ...duplicateIndices,
+      ...duplicateIndices.map(v => v+BigInt(this.friDomainLength>>1n) % BigInt(this.friDomainLength))
+    ]
+    quadrupledIndices.sort((a, b) => a > b ? 1 : -1)
 
     for (const bqc of boundaryQuotientCodewords) {
-      for (const index of duplicateIndices) {
+      for (const index of quadrupledIndices) {
         proofStream.push(bqc[Number(index)])
         const { path } = MerkleTree.open(index, bqc)
         proofStream.push(path)
       }
     }
-    for (const index of indices) {
-      proofStream.push(randomizerCodeword[index])
+    for (const index of quadrupledIndices) {
+      proofStream.push(randomizerCodeword[Number(index)])
       const { path } = MerkleTree.open(index, randomizerCodeword)
       proofStream.push(path)
     }
@@ -260,8 +275,7 @@ export class STARK {
       throw new Error('FRI verification failed')
     }
 
-    // TODO
-    // polynomialValues.sort()
+    polynomialValues.sort((a, b) => a[0] > b[0] ? 1 : -1)
 
     const indices = polynomialValues.map(([v]) => v)
     const values = polynomialValues.map(([,v]) => v)
@@ -270,6 +284,7 @@ export class STARK {
       indices,
       indices.map(i => (i + BigInt(this.expansionFactor)) % this.friDomainLength)
     ].flat()
+    duplicateIndices.sort((a, b) => a > b ? 1 : -1)
 
     const leaves = []
     for (let x = 0; x < boundaryQuotientRoots.length; x++) {
@@ -285,7 +300,7 @@ export class STARK {
     }
 
     const randomizer = {}
-    for (const i of indices) {
+    for (const i of duplicateIndices) {
       randomizer[i] = proofStream.pull()
       const path = proofStream.pull()
       verifierAccepts = verifierAccepts && MerkleTree.verify(randomizerRoot, i, path, randomizer[i])
@@ -293,10 +308,8 @@ export class STARK {
         throw new Error('Invalid randomizer proof')
       }
     }
-
     for (let x = 0; x < indices.length; x++) {
       const currentIndex = BigInt(indices[x])
-      console.log(currentIndex)
       const domainCurrentIndex = this.field.mul(this.field.g, this.field.exp(this.omega, currentIndex))
       const nextIndex = (currentIndex + BigInt(this.expansionFactor)) % BigInt(this.friDomainLength)
       const domainNextIndex = this.field.mul(this.field.g, this.field.exp(this.omega, nextIndex))
@@ -322,7 +335,6 @@ export class STARK {
       ]
       const transitionConstraintsValues = transitionConstraints.map(p => p.evaluate(point))
 
-      let counter = 0
       const terms = [randomizer[currentIndex]]
       for (let y = 0; y < transitionConstraintsValues.length; y++) {
         const tcv = transitionConstraintsValues[y]
@@ -344,8 +356,6 @@ export class STARK {
       const combination = terms.reduce((acc, t, i) => {
         return this.field.add(this.field.mul(t, weights[i]), acc)
       }, 0n)
-      console.log(terms.length, weights.length)
-      console.log(combination, values[x])
 
       verifierAccepts = verifierAccepts && (combination === values[x])
       if (!verifierAccepts) {

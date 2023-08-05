@@ -258,3 +258,30 @@ test('should multiply polynomials using FFT', t => {
 
   t.true(out1.isEqual(actual))
 })
+
+test('should compute zerofier for domain', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const g = f.generator(1024n)
+  const domain = Array(500).fill().map((_, i) => f.exp(g, BigInt(i)))
+  const zeroifier = Polynomial.zeroifierDomain(domain, f)
+  for (const d of domain) {
+    t.is(0n, zeroifier.evaluate(d))
+  }
+})
+
+test('should exponentiate polynomial', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const p = new Polynomial(f)
+    .term({ coef: 89n, exp: 2n })
+    .term({ coef: 8n, exp: 9n })
+    .term({ coef: 28n, exp: 4n })
+
+  t.true(p.copy().exp(0n).isEqual(new Polynomial(f).term({ coef: 1n, exp: 0n })))
+  t.true(p.copy().exp(1n).isEqual(p))
+
+  const p2 = p.copy().mul(p)
+  t.true(p.copy().exp(2n).isEqual(p2))
+
+  const p3 = p.copy().mul(p).mul(p)
+  t.true(p.copy().exp(3n).isEqual(p3))
+})
