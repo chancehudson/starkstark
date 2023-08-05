@@ -28,10 +28,6 @@ export class Polynomial {
     return p
   }
 
-  static one(f) {
-    return new this(f).term({ coef: 1n, exp: 0n })
-  }
-
   mul(poly) {
     // TODO: check that the fields for the polynomials match
     const newTerms = []
