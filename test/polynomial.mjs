@@ -278,6 +278,21 @@ test('should multiply polynomials using FFT', t => {
   t.true(out1.isEqual(actual))
 })
 
+test('should multiply high degree polynomials using FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 128n
+  const p1 = new Polynomial(f)
+  const p2 = new Polynomial(f)
+  for (let x = 0n; x < size; x++) {
+    p1.term({ coef: f.random(), exp: x })
+    p2.term({ coef: f.random(), exp: x })
+  }
+  const expected = p1.copy().mul(p2)
+  const out = p1.mulFFT(p2)
+
+  t.true(out.isEqual(expected))
+})
+
 test('should compute zerofier for domain', t => {
   const f = new ScalarField(3221225473n, 5n)
   const g = f.generator(1024n)
@@ -286,6 +301,36 @@ test('should compute zerofier for domain', t => {
   for (const d of domain) {
     t.is(0n, zeroifier.evaluate(d))
   }
+})
+
+test('should compute zerofier for domain using FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 32n
+  const g = f.generator(size)
+  const domain = Array(20).fill().map((_, i) => f.exp(g, BigInt(i)))
+  const zeroifier = Polynomial.zeroifierDomain(domain, f)
+  const zeroifierFast = Polynomial.zeroifierDomainFFT(domain, g, size, f)
+  for (const d of domain) {
+    t.is(0n, zeroifier.evaluate(d))
+    t.is(0n, zeroifierFast.evaluate(d))
+  }
+  t.true(zeroifier.isEqual(zeroifierFast))
+})
+
+test('should fail to compute zerofier for too many points with FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 32n
+  const g = f.generator(size)
+  const domain = Array(Number(size)).fill().map((_, i) => f.exp(g, BigInt(i)))
+  t.throws(() => Polynomial.zeroifierDomainFFT(domain, g, size, f))
+})
+
+test('should fail to compute zerofier for incorrect generator with FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 32n
+  const g = f.generator(size)
+  const domain = Array(2).fill().map((_, i) => f.exp(g, BigInt(i)))
+  t.throws(() => Polynomial.zeroifierDomainFFT(domain, 2n*g, size, f))
 })
 
 test('should exponentiate polynomial', t => {

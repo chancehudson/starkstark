@@ -284,33 +284,44 @@ export class Polynomial {
     const domainExp = BigInt(Math.ceil(Math.log2(elementCount*2)))
     const g = this.field.generator(2n**domainExp)
     const G = Array(Number(2n**domainExp)).fill().map((_,i) => this.field.exp(g, BigInt(i)))
-
-    const p1Coefs = this.coefs
-    if (p1Coefs.length < G.length) p1Coefs.push(...Array(G.length - p1Coefs.length).fill(0n))
-    const p2Coefs = poly.coefs
-    if (p2Coefs.length < G.length) p2Coefs.push(...Array(G.length - p2Coefs.length).fill(0n))
-
-    const x1 = this._evaluateFFT(p1Coefs, G)
-    const x2 = this._evaluateFFT(p2Coefs, G)
-
-    const x3 = Array(x1.length).fill().map((_, i) => {
-      return this.field.mul(x1[i], x2[i])
-    })
-
-    const out = this.invFFT(this._evaluateFFT(x3, G))
-    const terms = out.map((coef, exp) => ({
-      coef, exp: BigInt(exp),
-    }))
-    .filter(({ coef }) => coef !== 0n)
-    this.terms = terms
-    return this
+    return Polynomial.mulFFT(this, poly, g, 2n**BigInt(domainExp), this.field)
   }
 
-  invFFT(out) {
-    const lenInv = this.field.inv(BigInt(out.length))
-    return [out[0], out.slice(1).reverse()]
-      .flat()
-      .map(v => this.field.mul(v, lenInv))
+  static mulFFT(poly1, poly2, g, domainSize, field) {
+    const G = Array(Number(domainSize)).fill().map((_,i) => field.exp(g, BigInt(i)))
+
+    const p1Coefs = poly1.coefs
+    if (p1Coefs.length < G.length) p1Coefs.push(...Array(G.length - p1Coefs.length).fill(0n))
+    const p2Coefs = poly2.coefs
+    if (p2Coefs.length < G.length) p2Coefs.push(...Array(G.length - p2Coefs.length).fill(0n))
+
+    const x1 = this.evaluateFFT(p1Coefs, G, field)
+    const x2 = this.evaluateFFT(p2Coefs, G, field)
+
+    const x3 = Array(x1.length).fill().map((_, i) => {
+      return field.mul(x1[i], x2[i])
+    })
+
+    const out = this.invFFT(x3, g, domainSize, field)
+    const terms = out.map((coef, exp) => ({ coef, exp: BigInt(exp) }))
+      .filter(({ coef }) => coef !== 0n)
+    const p = new this(field)
+    p.terms = terms
+    return p
+
+  }
+
+  invFFT(vals, generator, domainSize) {
+    return Polynomial.invFFT(vals, generator, domainSize, this.field)
+  }
+
+  static invFFT(vals, generator, domainSize, field) {
+    if (vals.length === 1) return vals
+    const lenInv = field.inv(BigInt(vals.length))
+    const gInv = field.inv(generator)
+    const G = Array(Number(domainSize)).fill().map((_,i) => field.exp(gInv, BigInt(i)))
+    const out = this.evaluateFFT(vals, G, field)
+    return out.map((v, i) => field.mul(v, lenInv))
   }
 
   evaluateBatch(xValues) {
@@ -326,7 +337,7 @@ export class Polynomial {
   evaluateFFT(domain) {
     const coefs = this.coefs
     if (coefs.length < domain.length) coefs.push(...Array(domain.length-coefs.length).fill(0n))
-    return this._evaluateFFT(coefs, domain)
+    return Polynomial.evaluateFFT(coefs, domain, this.field)
   }
 
   // technically this is a number theoretic transform,
@@ -335,7 +346,7 @@ export class Polynomial {
   // we're evaluating a polynomial consisting of `vals` coefficients
   // at each point in `domain`. The output is the y value at each
   // x point in `domain`
-  _evaluateFFT(vals, domain) {
+  static evaluateFFT(vals, domain, field) {
     if (vals.length === 1) return vals
     const domainEven = domain.filter((v, i) => i % 2 === 0)
     const [left, right] = vals.reduce((acc, v, i) => {
@@ -346,15 +357,15 @@ export class Polynomial {
       }
       return acc
     }, [[], []])
-    const leftOut = this._evaluateFFT(left, domainEven)
-    const rightOut = this._evaluateFFT(right, domainEven)
+    const leftOut = this.evaluateFFT(left, domainEven, field)
+    const rightOut = this.evaluateFFT(right, domainEven, field)
     const out = Array(vals.length).fill(0)
     for (let i = 0; i < left.length; i++) {
       const x = leftOut[i]
       const y = rightOut[i]
-      const yRoot = this.field.mul(y, domain[i])
-      out[i] = this.field.add(x, yRoot)
-      out[i+leftOut.length] = this.field.sub(x, yRoot)
+      const yRoot = field.mul(y, domain[i])
+      out[i] = field.add(x, yRoot)
+      out[i+leftOut.length] = field.sub(x, yRoot)
     }
     return out
   }
@@ -367,13 +378,28 @@ export class Polynomial {
     return poly.degree() <= 1
   }
 
-  static zeroifierDomain(domain, field) {
+  static zeroifierDomainFFT(points, generator, domainSize, field) {
+    if (points.length >= domainSize) throw new Error(`Too many points for domain of size ${domainSize}`)
+    if (field.exp(generator, domainSize) !== 1n) throw new Error(`incorrect generator for domain of size ${domainSize}`)
+    if (points.length === 0) return new Polynomial(field)
+    if (points.length === 1) {
+      return new Polynomial(field)
+        .term({ coef: field.neg(points[0]), exp: 0n })
+        .term({ coef: 1n, exp: 1n })
+    }
+    const half = points.length >> 1
+    const left = this.zeroifierDomainFFT(points.slice(0, half), generator, domainSize, field)
+    const right = this.zeroifierDomainFFT(points.slice(half), generator, domainSize, field)
+    return this.mulFFT(left, right, generator, domainSize, field)
+  }
+
+  static zeroifierDomain(points, field) {
     const x = new Polynomial(field)
       .term({ coef: 1n, exp: 1n })
     const acc = new Polynomial(field)
       .term({ coef: 1n, exp: 0n })
-    for (const d of domain) {
-      acc.mul(x.copy().term({ coef: field.neg(d), exp: 0n }))
+    for (const p of points) {
+      acc.mul(x.copy().term({ coef: field.neg(p), exp: 0n }))
     }
     return acc
   }
