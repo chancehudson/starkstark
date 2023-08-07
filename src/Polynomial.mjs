@@ -313,40 +313,48 @@ export class Polynomial {
       .map(v => this.field.mul(v, lenInv))
   }
 
-  evaluateFFT(domain) {
+  evaluateBatch(xValues) {
     const out = []
-    for (const d of domain) {
-      out.push(this.evaluate(d))
+    for (const v of xValues) {
+      out.push(this.evaluate(v))
     }
     return out
   }
 
   // evaluate `this` at every point in domain
   // domain is an array of values
-  ___evaluateFFT(domain) {
+  evaluateFFT(domain) {
     const coefs = this.coefs
     if (coefs.length < domain.length) coefs.push(...Array(domain.length-coefs.length).fill(0n))
     return this._evaluateFFT(coefs, domain)
   }
 
+  // technically this is a number theoretic transform,
+  // a FFT applied in a finite field instead of the complex
+  // numbers
+  // we're evaluating a polynomial consisting of `vals` coefficients
+  // at each point in `domain`. The output is the y value at each
+  // x point in `domain`
   _evaluateFFT(vals, domain) {
     if (vals.length === 1) return vals
-    const domainVals = domain.filter((_, i) => i % 2 === 0)
-    const left = this._evaluateFFT(
-      vals.filter((_, i) => i % 2 === 0),
-      domainVals
-    )
-    const right = this._evaluateFFT(
-      vals.filter((_, i) => i % 2 === 1),
-      domain.filter((_, i) => i % 2 === 0)
-    )
+    const domainEven = domain.filter((v, i) => i % 2 === 0)
+    const [left, right] = vals.reduce((acc, v, i) => {
+      if (i % 2 === 0) {
+        acc[0].push(v)
+      } else {
+        acc[1].push(v)
+      }
+      return acc
+    }, [[], []])
+    const leftOut = this._evaluateFFT(left, domainEven)
+    const rightOut = this._evaluateFFT(right, domainEven)
     const out = Array(vals.length).fill(0)
     for (let i = 0; i < left.length; i++) {
-      const x = left[i]
-      const y = right[i]
+      const x = leftOut[i]
+      const y = rightOut[i]
       const yRoot = this.field.mul(y, domain[i])
       out[i] = this.field.add(x, yRoot)
-      out[i+left.length] = this.field.sub(x, yRoot)
+      out[i+leftOut.length] = this.field.sub(x, yRoot)
     }
     return out
   }

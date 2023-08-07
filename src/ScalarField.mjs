@@ -69,6 +69,7 @@ export class ScalarField {
   }
 
   primitiveNthRoot(n) {
+    return this.generator(n)
     let root = this.g
     let order = 1n << 119n
     while (order !== n) {

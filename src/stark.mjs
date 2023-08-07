@@ -160,7 +160,7 @@ export class STARK {
     const friDomain = this.fri.evalDomain()
     const boundaryQuotientCodewords = []
     for (let x = 0; x < this.registerCount; x++) {
-      const codewords = boundaryQuotients[x].evaluateFFT(friDomain)
+      const codewords = boundaryQuotients[x].evaluateBatch(friDomain)
       boundaryQuotientCodewords.push(codewords)
       const merkleRoot = MerkleTree.commit(codewords)
       proofStream.push(merkleRoot)
@@ -181,7 +181,7 @@ export class STARK {
       randomizerPolynomial.term({ coef: this.field.random(), exp: x })
     }
 
-    const randomizerCodeword = randomizerPolynomial.evaluateFFT(friDomain)
+    const randomizerCodeword = randomizerPolynomial.evaluateBatch(friDomain)
     const randomizerRoot = MerkleTree.commit(randomizerCodeword)
     proofStream.push(randomizerRoot)
 
@@ -214,7 +214,7 @@ export class STARK {
       return acc.add(term)
     }, new Polynomial(this.field))
 
-    const combinedCodeword = combination.evaluateFFT(friDomain)
+    const combinedCodeword = combination.evaluateBatch(friDomain)
     const indices = this.fri.prove(combinedCodeword, proofStream)
     indices.sort((a, b) => a > b ? 1 : -1)
     const duplicateIndices = [

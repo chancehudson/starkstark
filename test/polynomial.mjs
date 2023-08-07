@@ -231,9 +231,28 @@ test('should evaluate polynomial using FFT', t => {
   const G = Array(Number(size)).fill().map((_, i) => f.exp(g, BigInt(i)))
 
   const out = p.evaluateFFT(G)
+  const actual = p.evaluateBatch(G)
   for (let i = 0; i < G.length; i++) {
-    t.true(out[i] === p.evaluate(G[i]))
+    t.is(out[i], actual[i])
   }
+  t.is(out.length, actual.length)
+})
+
+test('should evaluate high degree polynomial using FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const p = new Polynomial(f)
+  for (let x = 0n; x < 128n; x++) {
+    p.term({ coef: f.random(), exp: x })
+  }
+  const size = 2n**10n
+  const g = f.generator(size)
+  const G = Array(Number(size)).fill().map((_, i) => f.exp(g, BigInt(i)))
+  const out = p.evaluateFFT(G)
+  const actual = p.evaluateBatch(G)
+  for (let i = 0; i < G.length; i++) {
+    t.is(out[i], actual[i])
+  }
+  t.is(out.length, actual.length)
 })
 
 test('should multiply polynomials using FFT', t => {
