@@ -71,8 +71,8 @@ export class STARK {
   }
 
   transitionZeroifier() {
-    const domain = this.omicronDomain.slice(0, this.originalTraceLength-1)
-    return Polynomial.zeroifierDomain(domain, this.field)
+    const points = this.omicronDomain.slice(0, this.originalTraceLength-1)
+    return Polynomial.zeroifierDomainFFT(points, this.omicron, this.omicronDomainLength, this.field)
   }
 
   // boundary should be an array of triple tuples (bigints)
@@ -86,7 +86,7 @@ export class STARK {
         }
         return this.field.exp(this.omicron, c)
       }).filter(v => v !== null)
-      zeroifiers.push(Polynomial.zeroifierDomain(points, this.field))
+      zeroifiers.push(Polynomial.zeroifierDomainFFT(points, this.omicron, this.omicronDomainLength, this.field))
     }
     return zeroifiers
   }
