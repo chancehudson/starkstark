@@ -279,6 +279,28 @@ export class Polynomial {
     return final
   }
 
+  static interpolateFFT(points, values, generator, size, field) {
+    if (points.length !== values.length) throw new Error(`points and values must be same length`)
+    if (points.length === 0) return new Polynomial(field)
+    if (points.length === 1) return new this(field).term({ coef: values[0], exp: 0n })
+
+    const half = points.length >> 1
+
+    const leftZeroifier = this.zeroifierDomainFFT(points.slice(0, half), generator, size, field)
+    const rightZeroifier = this.zeroifierDomainFFT(points.slice(half), generator, size, field)
+
+    const leftOffset = rightZeroifier.evaluateFast(points.slice(0, half), generator, size)
+    const rightOffset = leftZeroifier.evaluateFast(points.slice(half), generator, size)
+
+    const leftTargets = values.slice(0, half).map((v, i) => field.div(v, leftOffset[i]))
+    const rightTargets = values.slice(half).map((v, i) => field.div(v, rightOffset[i]))
+
+    const leftInterpolant = this.interpolateFFT(points.slice(0, half), leftTargets, generator, size, field)
+    const rightInterpolant = this.interpolateFFT(points.slice(half), rightTargets, generator, size, field)
+
+    return leftInterpolant.mul(rightZeroifier).add(rightInterpolant.mul(leftZeroifier))
+  }
+
   // only works with clean division (remainder = 0)
   // will NOT throw an error on unclean division, will silently
   // return incorrect value
@@ -318,6 +340,7 @@ export class Polynomial {
   }
 
   mulFFT(poly) {
+    if (this.degree() + poly.degree() < 32n) return this.copy().mul(poly)
     const elementCount = Math.max(Number(poly.degree()), Number(this.degree())) + 1
     const domainExp = BigInt(Math.ceil(Math.log2(elementCount*2)))
     const g = this.field.generator(2n**domainExp)
@@ -326,6 +349,7 @@ export class Polynomial {
   }
 
   static mulFFT(poly1, poly2, g, domainSize, field) {
+    if (poly1.degree() + poly2.degree() < 32n) return poly1.copy().mul(poly2)
     const G = Array(Number(domainSize)).fill().map((_,i) => field.exp(g, BigInt(i)))
 
     const p1Coefs = poly1.coefs
@@ -375,6 +399,23 @@ export class Polynomial {
   //   return scaledPoly.evaluateFFT(domain)
   // }
 
+  evaluateFast(points, generator, size) {
+    if (points.length === 0) return []
+    if (points.length === 1) return [this.evaluate(points[0])]
+
+    const half = points.length >> 1
+
+    const leftZeroifier = Polynomial.zeroifierDomainFFT(points.slice(0, half), generator, size, this.field)
+    const rightZeroifier = Polynomial.zeroifierDomainFFT(points.slice(half), generator, size, this.field)
+
+    const { r: leftR } = this.div(leftZeroifier)
+    const { r: rightR } = this.div(rightZeroifier)
+    const left = leftR.evaluateFast(points.slice(0, half), generator, size)
+    const right = rightR.evaluateFast(points.slice(half), generator, size)
+
+    return [left, right].flat()
+  }
+
   // evaluate `this` at every point in domain
   // domain is an array of values
   evaluateFFT(domain) {
@@ -393,11 +434,7 @@ export class Polynomial {
     if (vals.length === 1) return vals
     const domainEven = domain.filter((v, i) => i % 2 === 0)
     const [left, right] = vals.reduce((acc, v, i) => {
-      if (i % 2 === 0) {
-        acc[0].push(v)
-      } else {
-        acc[1].push(v)
-      }
+      acc[i%2].push(v)
       return acc
     }, [[], []])
     const leftOut = this.evaluateFFT(left, domainEven, field)

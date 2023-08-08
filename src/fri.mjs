@@ -188,7 +188,8 @@ export class FRI {
     }
 
     const lastDomain = lastCodeword.map((_, i) => this.field.mul(lastOffset, this.field.exp(lastOmega, BigInt(i))))
-    const poly = Polynomial.lagrange(lastDomain, lastCodeword, this.field)
+    // const poly = Polynomial.lagrange(lastDomain, lastCodeword, this.field)
+    const poly = Polynomial.interpolateFFT(lastDomain, lastCodeword, this.omega, BigInt(this.domainLength), this.field)
 
     // re-evaluate the polynomial to check lastCodeword consistency
     for (let x = 0; x < lastDomain.length; x++) {

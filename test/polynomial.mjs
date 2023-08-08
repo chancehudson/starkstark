@@ -187,27 +187,37 @@ test('should divide more complex polynomials', t => {
   t.is(q.mul(p2).add(r).isEqual(p1), true)
 })
 
-test('should calculate lagrange polynomial', t => {
+test('should interpolate with lagrange', t => {
   const f = new ScalarField(3221225473n, 5n)
   const count = 5
-  const random = () => {
-    let r = BigInt(Math.floor(Math.random() * 1000))
-    r = f.mod(r)
-    if (r === 0n) r += 1n
-    return r
-  }
   // need to make sure no x values are duplicated
   const xValues = []
   while (xValues.length < count) {
-    const v = random()
+    const v = f.random()
     if (xValues.indexOf(v) !== -1) continue
     xValues.push(v)
   }
-  const yValues = Array(count).fill().map(() => random())
+  const yValues = Array(count).fill().map(() => f.random())
   const poly = Polynomial.lagrange(xValues, yValues, f)
 
   for (let i = 0; i < xValues.length; i++) {
     t.is(poly.evaluate(xValues[i]), yValues[i])
+  }
+})
+
+test('should interpolate with FFT', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 64n
+  const g = f.generator(size)
+  const domain = Array(Number(size)).fill().map((_, i) => f.exp(g, BigInt(i)))
+  const pointCount = 40
+  const points = domain.slice(0, pointCount)
+  const yValues = Array(pointCount).fill().map(() => f.random())
+
+  const poly = Polynomial.interpolateFFT(points, yValues, g, size, f)
+
+  for (let i = 0; i < points.length; i++) {
+    t.is(poly.evaluate(domain[i]), yValues[i])
   }
 })
 
@@ -229,6 +239,23 @@ test('should compose polynomial', t => {
     .term({ coef: 4n, exp: 0n })
 
   t.true(b.isEqual(expected))
+})
+
+test('should evaluate polynomial using fast method', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const p = new Polynomial(f)
+  for (let x = 0n; x < 32n; x++) {
+    p.term({ coef: f.random(), exp: x })
+  }
+  const size = 2n**10n
+  const g = f.generator(size)
+  const points = Array(100).fill().map(() => f.random())
+  const out = p.evaluateFast(points, g, size)
+  const actual = p.evaluateBatch(points)
+  for (let i = 0; i < points.length; i++) {
+    t.is(out[i], actual[i])
+  }
+  t.is(out.length, actual.length)
 })
 
 test('should evaluate polynomial using FFT', t => {

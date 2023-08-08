@@ -103,7 +103,8 @@ export class STARK {
       }).filter(v => v !== null)
       const domain = points.map(([c, v]) => this.field.exp(this.omicron, c))
       const values = points.map(([c, v]) => v)
-      interpolants.push(Polynomial.lagrange(domain, values, this.field))
+      // interpolants.push(Polynomial.lagrange(domain, values, this.field))
+      interpolants.push(Polynomial.interpolateFFT(domain, values, this.omicron, this.omicronDomainLength, this.field))
     }
     return interpolants
   }
@@ -145,7 +146,8 @@ export class STARK {
 
     for (let x = 0; x < this.registerCount; x++) {
       const singleTrace = trace.map(v => v[x])
-      tracePolynomials.push(Polynomial.lagrange(traceDomain, singleTrace, this.field))
+      // tracePolynomials.push(Polynomial.lagrange(traceDomain, singleTrace, this.field))
+      tracePolynomials.push(Polynomial.interpolateFFT(traceDomain, singleTrace, this.omicron, this.omicronDomainLength, this.field))
     }
 
     // interpolate boundary points to get boundary quotients

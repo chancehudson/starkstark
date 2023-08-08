@@ -53,7 +53,7 @@ test('should generate a single register STARK proof', t => {
 })
 
 test('should generate a multi register STARK proof', t => {
-  const sequenceLength = 40
+  const sequenceLength = 120
   const registerCount = 4
 
   const stark = new STARK({
