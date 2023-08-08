@@ -8,13 +8,6 @@ export class MultiPolynomial {
     this.field = field
   }
 
-  isZero() {
-    for (const [, coef] of this.expMap.entries()) {
-      if (coef !== 0n) return false
-    }
-    return true
-  }
-
   isEqual(poly) {
     if (poly.expMap.size !== this.expMap.size) return false
     for (const [exps, p1] of poly.expMap) {

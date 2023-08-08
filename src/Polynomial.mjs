@@ -405,10 +405,6 @@ export class Polynomial {
 
   }
 
-  invFFT(vals, generator, domainSize) {
-    return Polynomial.invFFT(vals, generator, domainSize, this.field)
-  }
-
   static invFFT(vals, generator, domainSize, field) {
     if (vals.length === 1) return vals
     const lenInv = field.inv(BigInt(vals.length))

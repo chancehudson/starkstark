@@ -29,8 +29,8 @@ export class STARK {
     this.friDomainLength = this.omicronDomainLength * BigInt(expansionFactor)
     this.expansionFactor = expansionFactor
 
-    this.omega = this.field.primitiveNthRoot(this.friDomainLength)
-    this.omicron = this.field.primitiveNthRoot(this.omicronDomainLength)
+    this.omega = this.field.generator(this.friDomainLength)
+    this.omicron = this.field.generator(this.omicronDomainLength)
     this.omicronDomain = Array(Number(this.omicronDomainLength)).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
 
     this.fri = new FRI({
@@ -142,14 +142,6 @@ export class STARK {
 
     // interpolate trace to get the trace polynomials
     const traceDomain = Array(trace.length).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
-    // const tracePolynomials = []
-
-    for (let x = 0; x < this.registerCount; x++) {
-      // const singleTrace = trace.map(v => v[x])
-      // tracePolynomials.push(Polynomial.lagrange(traceDomain, singleTrace, this.field))
-      // 800 ms
-      // tracePolynomials.push(Polynomial.interpolateFFT(traceDomain, singleTrace, this.omicron, this.omicronDomainLength, this.field))
-    }
     const tracePolynomials = Polynomial.interpolateFFTBatch(
       traceDomain,
       Array(this.registerCount).fill().map((_, i) => trace.map(v => v[i])),
@@ -287,10 +279,8 @@ export class STARK {
     )
 
     const polynomialValues = []
-    let verifierAccepts = this.fri.verify(proofStream, polynomialValues)
-    if (!verifierAccepts) {
-      throw new Error('FRI verification failed')
-    }
+    // will throw upon error
+    this.fri.verify(proofStream, polynomialValues)
 
     polynomialValues.sort((a, b) => a[0] > b[0] ? 1 : -1)
 
@@ -309,10 +299,7 @@ export class STARK {
       for (const i of duplicateIndices) {
         leaves[x][i] = proofStream.pull()
         const path = proofStream.pull()
-        verifierAccepts = verifierAccepts && MerkleTree.verify(boundaryQuotientRoots[x], i, path, leaves[x][i])
-        if (!verifierAccepts) {
-          throw new Error('Invalid boundary proof')
-        }
+        MerkleTree.verify(boundaryQuotientRoots[x], i, path, leaves[x][i])
       }
     }
 
@@ -320,10 +307,7 @@ export class STARK {
     for (const i of duplicateIndices) {
       randomizer[i] = proofStream.pull()
       const path = proofStream.pull()
-      verifierAccepts = verifierAccepts && MerkleTree.verify(randomizerRoot, i, path, randomizer[i])
-      if (!verifierAccepts) {
-        throw new Error('Invalid randomizer proof')
-      }
+      MerkleTree.verify(randomizerRoot, i, path, randomizer[i])
     }
     for (let x = 0; x < indices.length; x++) {
       const currentIndex = BigInt(indices[x])
@@ -367,15 +351,11 @@ export class STARK {
         const shift = this.maxDegree(transitionConstraints) - this.boundaryQuotientDegreeBounds(randomizedTraceLength, boundary)[y]
         terms.push(this.field.mul(bqv, this.field.exp(domainCurrentIndex, BigInt(shift))))
       }
-      if (terms.length !== weights.length) {
-        throw new Error('terms/weights length mismatch')
-      }
       const combination = terms.reduce((acc, t, i) => {
         return this.field.add(this.field.mul(t, weights[i]), acc)
       }, 0n)
 
-      verifierAccepts = verifierAccepts && (combination === values[x])
-      if (!verifierAccepts) {
+      if (combination !== values[x]) {
         throw new Error('Invalid combination value')
       }
     }
