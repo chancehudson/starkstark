@@ -34,7 +34,8 @@ jobs:
       - run:
           name: Upload
           command: |
-            if [ "<< parameters.node-version >>" = "20" ]; then
+            if [ "<< parameters.node-version >>" = "20" -a "$CIRCLE_BRANCH" = "main" ]; then
               npm run upload
+              npx camo-purge --repository https://github.com/vimwitch/starkstark
             fi
 
