@@ -279,6 +279,38 @@ export class Polynomial {
     return final
   }
 
+  // values should be a matrix, points an array
+  // save time by sharing the zeroifier and offset calculation/eval
+  static interpolateFFTBatch(points, values, generator, size, field) {
+    for (const v of values) {
+      if (v.length !== points.length) throw new Error('all value arrays must have same length as points')
+    }
+    if (points.length === 0) return values.map(() => new Polynomial(field))
+    if (points.length === 1) return values.map((v) => new this(field).term({ coef: v[0], exp: 0n }))
+
+    const half = points.length >> 1
+
+    const leftZeroifier = this.zeroifierDomainFFT(points.slice(0, half), generator, size, field)
+    const rightZeroifier = this.zeroifierDomainFFT(points.slice(half), generator, size, field)
+
+    const leftOffset = rightZeroifier.evaluateFast(points.slice(0, half), generator, size)
+    const rightOffset = leftZeroifier.evaluateFast(points.slice(half), generator, size)
+
+
+    const leftTargets = values.map(v => {
+      return v.slice(0, half).map((_v, i) => field.div(_v, leftOffset[i]))
+    })
+
+    const rightTargets = values.map(v => {
+      return v.slice(half).map((_v, i) => field.div(_v, rightOffset[i]))
+    })
+
+    const leftInterpolant = this.interpolateFFTBatch(points.slice(0, half), leftTargets, generator, size, field)
+    const rightInterpolant = this.interpolateFFTBatch(points.slice(half), rightTargets, generator, size, field)
+
+    return leftInterpolant.map((v, i) => v.copy().mul(rightZeroifier).add(rightInterpolant[i].mul(leftZeroifier)))
+  }
+
   static interpolateFFT(points, values, generator, size, field) {
     if (points.length !== values.length) throw new Error(`points and values must be same length`)
     if (points.length === 0) return new Polynomial(field)

@@ -142,19 +142,29 @@ export class STARK {
 
     // interpolate trace to get the trace polynomials
     const traceDomain = Array(trace.length).fill().map((_, i) => this.field.exp(this.omicron, BigInt(i)))
-    const tracePolynomials = []
+    // const tracePolynomials = []
 
     for (let x = 0; x < this.registerCount; x++) {
-      const singleTrace = trace.map(v => v[x])
+      // const singleTrace = trace.map(v => v[x])
       // tracePolynomials.push(Polynomial.lagrange(traceDomain, singleTrace, this.field))
-      tracePolynomials.push(Polynomial.interpolateFFT(traceDomain, singleTrace, this.omicron, this.omicronDomainLength, this.field))
+      // 800 ms
+      // tracePolynomials.push(Polynomial.interpolateFFT(traceDomain, singleTrace, this.omicron, this.omicronDomainLength, this.field))
     }
+    const tracePolynomials = Polynomial.interpolateFFTBatch(
+      traceDomain,
+      Array(this.registerCount).fill().map((_, i) => trace.map(v => v[i])),
+      this.omicron,
+      this.omicronDomainLength,
+      this.field
+    )
 
     // interpolate boundary points to get boundary quotients
+    const boundaryInterpolants = this.boundaryInterpolants(boundary)
+    const boundaryZeroifiers = this.boundaryZeroifiers(boundary)
     const boundaryQuotients = []
     for (let x = 0; x < this.registerCount; x++) {
-      const interpolant = this.boundaryInterpolants(boundary)[x]
-      const zeroifier = this.boundaryZeroifiers(boundary)[x]
+      const interpolant = boundaryInterpolants[x]
+      const zeroifier = boundaryZeroifiers[x]
       const q = Polynomial.fastCosetDivide(tracePolynomials[x].copy().sub(interpolant), zeroifier, this.field.g, this.omega, this.friDomainLength, this.field)
       // const quotient = tracePolynomials[x].copy().sub(interpolant).safediv(zeroifier)
       boundaryQuotients.push(q)
@@ -178,13 +188,15 @@ export class STARK {
       ...tracePolynomials.map(p => p.copy().scale(this.omicron))
     ]
     const transitionPolynomials = transitionConstraints.map(c => c.evaluateSymbolic(point))
+    const transitionZeroifier = this.transitionZeroifier()
     const transitionQuotients = transitionPolynomials.map(p => {
       // p.copy().safediv(this.transitionZeroifier())
-      return Polynomial.fastCosetDivide(p, this.transitionZeroifier(), this.field.g, this.omega, this.friDomainLength, this.field)
+      return Polynomial.fastCosetDivide(p, transitionZeroifier, this.field.g, this.omega, this.friDomainLength, this.field)
     })
 
     const randomizerPolynomial = new Polynomial(this.field)
-    for (let x = 0n; x < this.maxDegree(transitionConstraints) + 1n; x++) {
+    const transitionMaxDegree = this.maxDegree(transitionConstraints)
+    for (let x = 0n; x < transitionMaxDegree + 1n; x++) {
       randomizerPolynomial.term({ coef: this.field.random(), exp: x })
     }
 
@@ -199,15 +211,18 @@ export class STARK {
       if (transitionQuotients[x].degree() !== bounds[x]) throw new Error('transition quotient degrees do not match expected value')
     }
 
+    const transitionQuotientDegreeBounds = this.transitionQuotientDegreeBounds(transitionConstraints)
+    const boundaryQuotientDegreeBounds = this.boundaryQuotientDegreeBounds(trace.length, boundary)
+
     const terms = [randomizerPolynomial]
     for (let x = 0; x < transitionQuotients.length; x++) {
       terms.push(transitionQuotients[x])
-      const shift = this.maxDegree(transitionConstraints) - this.transitionQuotientDegreeBounds(transitionConstraints)[x]
+      const shift = transitionMaxDegree - transitionQuotientDegreeBounds[x]
       terms.push(pX.copy().exp(BigInt(shift)).mul(transitionQuotients[x]))
     }
     for (let x = 0; x < this.registerCount; x++) {
       terms.push(boundaryQuotients[x])
-      const shift = this.maxDegree(transitionConstraints) - this.boundaryQuotientDegreeBounds(trace.length, boundary)[x]
+      const shift = transitionMaxDegree - boundaryQuotientDegreeBounds[x]
       terms.push(pX.copy().exp(BigInt(shift)).mul(boundaryQuotients[x]))
     }
     const c = Array(weights.length).fill().map((_, i) => {
