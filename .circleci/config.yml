@@ -1,0 +1,31 @@
+version: 2.1
+
+workflows:
+  test:
+    jobs:
+      - test-node:
+          matrix:
+            parameters:
+              node-version: ["16", "18", "20"]
+
+orbs:
+  node: circleci/node@4.7
+
+jobs:
+  test-node:
+    resource_class: medium
+    parameters:
+      node-version:
+        type: string
+    machine:
+      image: ubuntu-2204:2022.04.1
+    steps:
+      - checkout
+      - node/install:
+          node-version: << parameters.node-version >>
+      - run:
+          name: Install Packages
+          command: npm i
+      - run:
+          name: Test
+          command: npm run coverage
