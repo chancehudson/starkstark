@@ -52,7 +52,51 @@ test('should generate a single register STARK proof', t => {
   t.true(valid)
 })
 
-test('should fail to generate proof with invalid trace', t => {
+test('should generate a multi register STARK proof', t => {
+  const sequenceLength = 40
+  const registerCount = 4
+
+  const stark = new STARK({
+    field: f,
+    expansionFactor: 4,
+    colinearityTestCount: 8,
+    offset: f.g,
+    registerCount,
+    originalTraceLength: sequenceLength,
+    transitionConstraintsDegree: 2
+  })
+
+  const trace = [Array(registerCount).fill().map(() => f.random())]
+
+  while (trace.length < sequenceLength) {
+    trace.push([])
+    for (let x = 0; x < registerCount; x++) {
+      const e1 = trace[trace.length - 2][x]
+      trace[trace.length-1].push(f.mul(e1, e1))
+    }
+  }
+
+  // trace index, register index, value
+  const boundaryConstraints = [
+    ...trace[0].map((v, i) => [0n, BigInt(i), v]),
+    ...trace[trace.length-1].map((v, i) => [BigInt(sequenceLength-1), BigInt(i), v])
+  ]
+
+  const variables = Array(1+2*registerCount).fill().map((_, i) => {
+    return new MultiPolynomial(f)
+      .term({ coef: 1n, exps: { [i]: 1n }})
+  })
+  const cycleIndex = variables[0]
+  const prevState = variables.slice(1, 1+registerCount)
+  const nextState = variables.slice(1+registerCount, 1+2*registerCount)
+  const transitionConstraints = Array(registerCount).fill().map((_, i) => prevState[i].copy().mul(prevState[i]).sub(nextState[i]))
+
+  const proof = stark.prove(trace, transitionConstraints, boundaryConstraints)
+  const valid = stark.verify(proof, transitionConstraints, boundaryConstraints)
+  t.true(valid)
+})
+
+test('should fail to verify proof with invalid trace', t => {
   // t.timeout(2000 * 1000)
   const sequenceLength = 40
   const stark = new STARK({
@@ -92,7 +136,8 @@ test('should fail to generate proof with invalid trace', t => {
     prevState.copy().mul(prevState).sub(nextState)
   ]
 
-  t.throws(() => stark.prove(trace, transitionConstraints, boundaryConstraints))
+  const proof = stark.prove(trace, transitionConstraints, boundaryConstraints)
+  t.throws(() => stark.verify(proof, transitionConstraints, boundaryConstraints))
 })
 
 test('should fail to verify bad proof', t => {

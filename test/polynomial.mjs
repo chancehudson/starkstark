@@ -130,6 +130,23 @@ test('should divide polynomials', t => {
   t.is(q.mul(p2).add(r).isEqual(p1), true)
 })
 
+test('should divide with coset FFT division', t => {
+  const f = new ScalarField(3221225473n, 5n)
+  const size = 1024n
+  const g = f.generator(size)
+  const domain = Array(33n).fill().map((_, i) => f.exp(g, BigInt(i)))
+  const denom = Polynomial.zeroifierDomainFFT(domain, g, size, f)
+  const expected = new Polynomial(f)
+  for (let x = 0n; x < 32n; x++) {
+    expected.term({ coef: f.random(), exp: x })
+  }
+  const numer = denom.copy().mul(expected)
+  const { q, r } = numer.copy().div(denom)
+  t.true(r.isZero())
+  const _q = Polynomial.fastCosetDivide(numer, denom, 5n, g, size, f)
+  t.true(denom.copy().mul(_q).isEqual(numer))
+})
+
 test('should divide more complex polynomials', t => {
   const f = new ScalarField(101n)
   const p1 = new Polynomial(f)

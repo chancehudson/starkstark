@@ -18,6 +18,7 @@ export class STARK {
       transitionConstraintsDegree // 2 by default ?
     } = config
 
+    this.offset = offset
     this.field = field
     this.randomizerCount = 4*colinearityTestCount
     this.registerCount = registerCount
@@ -152,15 +153,16 @@ export class STARK {
     for (let x = 0; x < this.registerCount; x++) {
       const interpolant = this.boundaryInterpolants(boundary)[x]
       const zeroifier = this.boundaryZeroifiers(boundary)[x]
-      const quotient = tracePolynomials[x].copy().sub(interpolant).safediv(zeroifier)
-      boundaryQuotients.push(quotient)
+      const q = Polynomial.fastCosetDivide(tracePolynomials[x].copy().sub(interpolant), zeroifier, this.field.g, this.omega, this.friDomainLength, this.field)
+      // const quotient = tracePolynomials[x].copy().sub(interpolant).safediv(zeroifier)
+      boundaryQuotients.push(q)
     }
 
     // commit to the boundary quotients
     const friDomain = this.fri.evalDomain()
     const boundaryQuotientCodewords = []
     for (let x = 0; x < this.registerCount; x++) {
-      const codewords = boundaryQuotients[x].evaluateBatch(friDomain)
+      const codewords = boundaryQuotients[x].evaluateBatch(friDomain, this.field.g)
       boundaryQuotientCodewords.push(codewords)
       const merkleRoot = MerkleTree.commit(codewords)
       proofStream.push(merkleRoot)
@@ -174,7 +176,10 @@ export class STARK {
       ...tracePolynomials.map(p => p.copy().scale(this.omicron))
     ]
     const transitionPolynomials = transitionConstraints.map(c => c.evaluateSymbolic(point))
-    const transitionQuotients = transitionPolynomials.map(p => p.copy().safediv(this.transitionZeroifier()))
+    const transitionQuotients = transitionPolynomials.map(p => {
+      // p.copy().safediv(this.transitionZeroifier())
+      return Polynomial.fastCosetDivide(p, this.transitionZeroifier(), this.field.g, this.omega, this.friDomainLength, this.field)
+    })
 
     const randomizerPolynomial = new Polynomial(this.field)
     for (let x = 0n; x < this.maxDegree(transitionConstraints) + 1n; x++) {

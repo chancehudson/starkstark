@@ -279,6 +279,44 @@ export class Polynomial {
     return final
   }
 
+  // only works with clean division (remainder = 0)
+  // will NOT throw an error on unclean division, will silently
+  // return incorrect value
+  static fastCosetDivide(poly1, poly2, offset, generator, domainSize, field) {
+    if (poly1.isZero()) return poly1
+    if (poly2.degree() > poly1.degree()) throw new Error('cannot divide by polynomial of larger degree')
+
+    const degree = Math.max(Number(poly1.degree()), Number(poly2.degree()))
+    let g = generator
+    let order = domainSize
+
+    while (degree < Number(order) >> 1) {
+      g = field.mul(g, g)
+      order >>= 1n
+    }
+
+    const poly1Scaled = poly1.copy().scale(offset)
+    const poly2Scaled = poly2.copy().scale(offset)
+
+    const poly1Coefs = poly1Scaled.coefs
+    if (Number(order) > poly1Coefs.length) poly1Coefs.push(...Array(Number(order)-poly1Coefs.length).fill(0n))
+    const poly2Coefs = poly2Scaled.coefs
+    if (Number(order) > poly2Coefs.length) poly2Coefs.push(...Array(Number(order)-poly2Coefs.length).fill(0n))
+
+    const domain = Array(Number(order)).fill().map((_, i) => field.exp(g, BigInt(i)))
+    const poly1Codeword = this.evaluateFFT(poly1Coefs, domain, field)
+    const poly2Codeword = this.evaluateFFT(poly2Coefs, domain, field)
+
+    const outCodeword = Array(poly1Codeword.length).fill().map((_, i) => field.div(poly1Codeword[i], poly2Codeword[i]))
+
+    const scaledOutCoefs = this.invFFT(outCodeword, g, order, field)
+    const scaledPoly = new Polynomial(field)
+    for (let x = 0n; x < poly1.degree() - poly2.degree() + 1n; x++) {
+      scaledPoly.term({ coef: scaledOutCoefs[Number(x)], exp: x })
+    }
+    return scaledPoly.scale(field.inv(offset))
+  }
+
   mulFFT(poly) {
     const elementCount = Math.max(Number(poly.degree()), Number(this.degree())) + 1
     const domainExp = BigInt(Math.ceil(Math.log2(elementCount*2)))
@@ -331,6 +369,11 @@ export class Polynomial {
     }
     return out
   }
+
+  // evaluateFFTCoset(domain, offset) {
+  //   const scaledPoly = this.copy().scale(offset)
+  //   return scaledPoly.evaluateFFT(domain)
+  // }
 
   // evaluate `this` at every point in domain
   // domain is an array of values
