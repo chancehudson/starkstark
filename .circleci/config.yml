@@ -4,6 +4,8 @@ workflows:
   test:
     jobs:
       - test-node:
+          context:
+            - org-global
           matrix:
             parameters:
               node-version: ["16", "18", "20"]
@@ -28,4 +30,11 @@ jobs:
           command: npm i
       - run:
           name: Test
-          command: npm run coverage
+          command: npm run coverage && npm run badge
+      - run:
+          name: Upload
+          command: |
+            if [ "<< parameters.node-version >>" = "20" ]; then
+              npm run upload
+            fi
+
