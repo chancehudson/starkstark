@@ -43,24 +43,24 @@ export class STARK {
 
   transitionDegreeBounds(transitionConstraints) {
     const pointDegrees = [
-      1n,
-      ...Array(2*this.registerCount).fill(BigInt(this.originalTraceLength + this.randomizerCount - 1)),
+      1,
+      ...Array(2*this.registerCount).fill(this.originalTraceLength + this.randomizerCount - 1),
     ]
     const out = []
     for (const t of transitionConstraints) {
-      let largest = 0n
+      let largest = 0
 
       for (const [_exps, coef] of t.expMap.entries()) {
-        const exps = _exps.split(',').map(v => BigInt(v))
-        let sum = 0n
+        const exps = _exps.split(',').map(v => v)
+        let sum = 0
         for (let x = 0; x < pointDegrees.length; x++) {
-          sum += (exps[x] ?? 0n) * BigInt(pointDegrees[x])
+          sum += (exps[x] ?? 0) * pointDegrees[x]
         }
         if (sum > largest) largest = sum
       }
       out.push(largest)
     }
-    return out
+    return out.map(v => BigInt(v))
   }
 
   transitionQuotientDegreeBounds(transitionConstraints) {

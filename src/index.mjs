@@ -25,5 +25,5 @@ export const defaultStark = (traceLength, registerCount, _field = field) => new 
   offset: _field.g,
   registerCount,
   originalTraceLength: traceLength,
-  transitionConstraintsDegree: 2
+  transitionConstraintsDegree: 9
 })
