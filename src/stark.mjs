@@ -1,9 +1,10 @@
-import { createHash } from 'crypto'
 import { FRI } from './fri.mjs'
 import { Channel } from './Channel.mjs'
 import { MultiPolynomial } from './MultiPolynomial.mjs'
 import { Polynomial } from './Polynomial.mjs'
 import { MerkleTree } from './Tree.mjs'
+import { sha256 } from '@noble/hashes/sha256'
+import { bytesToHex } from '@noble/hashes/utils'
 
 export class STARK {
   constructor(config) {
@@ -122,11 +123,11 @@ export class STARK {
 
   sampleWeights(count, randomness) {
     return Array(count).fill().map((_, i) => {
-      const hash = createHash('sha256')
+      const hash = sha256.create()
       const seedStr = this.bigintHex(randomness)
       hash.update(seedStr, 'hex')
       hash.update(this.bigintHex(BigInt(i)), 'hex')
-      return BigInt(`0x${hash.digest('hex')}`)
+      return BigInt(`0x${bytesToHex(hash.digest())}`)
     })
   }
 

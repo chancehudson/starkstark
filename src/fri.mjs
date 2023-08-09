@@ -1,6 +1,7 @@
 import { MerkleTree } from './Tree.mjs'
 import { Polynomial } from './Polynomial.mjs'
-import { createHash } from 'crypto'
+import { sha256 } from '@noble/hashes/sha256'
+import { bytesToHex } from '@noble/hashes/utils'
 
 export class FRI {
   constructor(config) {
@@ -143,11 +144,11 @@ export class FRI {
     const reducedIndices = []
     let counter = 0
     while (indices.length < count) {
-      const hash = createHash('sha256')
+      const hash = sha256.create()
       const seedStr = this.bigintHex(seed)
       hash.update(seedStr, 'hex')
       hash.update(this.bigintHex(BigInt(counter)), 'hex')
-      const v = BigInt(`0x${hash.digest('hex')}`)
+      const v = BigInt(`0x${bytesToHex(hash.digest())}`)
       const index = this.sampleIndex(v, size)
       const reducedIndex = index % BigInt(reducedSize)
       counter++

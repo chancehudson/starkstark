@@ -3,7 +3,8 @@
  * retrieving psuedo random values
  **/
 
-import { createHash } from 'crypto'
+import { sha256 } from '@noble/hashes/sha256'
+import { bytesToHex } from '@noble/hashes/utils'
 
 export class Channel {
   constructor() {
@@ -21,13 +22,13 @@ export class Channel {
   }
 
   hash(to) {
-    const hash = createHash('sha256')
+    const hash = sha256.create()
     for (const m of this.messages.slice(0, to)) {
       hash.update(
         JSON.stringify(m, (_, v) => typeof v === 'bigint' ? v.toString() : v)
       )
     }
-    return BigInt(`0x${hash.digest('hex')}`)
+    return BigInt(`0x${bytesToHex(hash.digest())}`)
   }
 
   proverHash() {

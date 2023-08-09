@@ -1,4 +1,5 @@
-import { createHash } from 'crypto'
+import { sha256 } from '@noble/hashes/sha256'
+import { bytesToHex } from '@noble/hashes/utils'
 
 export class MerkleTree {
 
@@ -7,13 +8,13 @@ export class MerkleTree {
     const [in1, in2] = args
     if (typeof in1 !== 'bigint') throw new Error('in1 must be bigint')
     if (typeof in2 !== 'bigint') throw new Error('in2 must be bigint')
-    const hash = createHash('sha256')
+    const hash = sha256.create()
     for (const _v of args) {
       let v = _v.toString(16)
       if (v.length % 2 === 1) v = `0${v}`
       hash.update(v, 'hex')
     }
-    return BigInt(`0x${hash.digest('hex')}`)
+    return BigInt(`0x${bytesToHex(hash.digest())}`)
   }
 
   static build(leaves) {
