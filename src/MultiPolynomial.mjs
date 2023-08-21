@@ -125,6 +125,26 @@ export class MultiPolynomial {
     return m
   }
 
+  serialize() {
+    // turn it into a u32 array
+    function serializeBigint(v) {
+      let _v = v
+      const out = []
+      while (_v > 0n) {
+        out.push(Number(_v & ((1n << 32n) - 1n)))
+        _v >>= 32n
+      }
+      return out
+    }
+    const out = new Map()
+    for (const [_exp, coef] of this.expMap.entries()) {
+      const exp = MultiPolynomial.expStringToVector(_exp)
+      const numExp = exp.map(v => Number(v))
+      out.set(numExp, serializeBigint(coef))
+    }
+    return out
+  }
+
   static expStringToVector(s) {
     return s.split(',').map(v => BigInt(v))
   }
