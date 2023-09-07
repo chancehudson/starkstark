@@ -54,6 +54,23 @@ export class MultiPolynomial {
     return this
   }
 
+  static constant(v, field) {
+    return new MultiPolynomial(field)
+      .term({ coef: v, exps: { 0: 0n }})
+  }
+
+  exp(pow) {
+    if (Number(pow) === 0) {
+      return MultiPolynomial.constant(1n, this.field)
+    }
+    const out = this.copy()
+    for (let x = 1; x < Number(pow); x++) {
+      out.mul(this)
+    }
+    this.expMap = out.expMap
+    return this
+  }
+
   neg() {
     for (const [exp, coef] of this.expMap.entries()) {
       this.expMap.set(exp, this.field.mul(-1n, coef))
@@ -62,7 +79,7 @@ export class MultiPolynomial {
   }
 
   sub(poly) {
-    this.add(poly.neg())
+    this.add(poly.copy().neg())
     return this
   }
 
