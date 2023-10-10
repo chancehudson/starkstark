@@ -83,6 +83,34 @@ export class MultiPolynomial {
     return this
   }
 
+  evaluateSingle(point, expIndex) {
+    const out = new MultiPolynomial(this.field)
+    for (const [_exps, coef] of this.expMap.entries()) {
+      const exps = MultiPolynomial.expStringToVector(_exps)
+      if (exps.length <= expIndex) {
+        // take term as is
+        out.term({ coef, exps: exps.reduce((acc, val, i) => {
+          return {
+            ...acc,
+            [i]: val
+          }
+        }, {})})
+        continue
+      }
+      const exp = exps[expIndex]
+      const newCoef = this.field.mul(coef, this.field.exp(point, BigInt(exp)))
+      out.term({ coef: newCoef, exps: exps.reduce((acc, val, i) => {
+        if (i === expIndex) return acc
+        return {
+          ...acc,
+          [i]: val
+        }
+      }, {})})
+    }
+    this.expMap = out.expMap
+    return this
+  }
+
   evaluate(points) {
     let out = 0n
     for (const [_exps, coef] of this.expMap.entries()) {
@@ -169,7 +197,7 @@ export class MultiPolynomial {
   static expVectorToString(vec) {
     // trim trailing zeroes
     let lastIndex = vec.length
-    for (let x = vec.length; x >= 0; --x) {
+    for (let x = vec.length-1; x >= 0; --x) {
       if (vec[x] === 0n) lastIndex = x
       else break
     }
