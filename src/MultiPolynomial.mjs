@@ -111,6 +111,31 @@ export class MultiPolynomial {
     return this
   }
 
+  evaluatePartial(points) {
+    const out = new MultiPolynomial(this.field)
+    for (const [_exps, coef] of this.expMap.entries()) {
+      const exps = MultiPolynomial.expStringToVector(_exps)
+      let inter = coef
+      for (let x = 0; x < exps.length; x++) {
+        if (exps[x] === 0n || !exps[x]) continue
+        if (points[x] === null) {
+          // leave as is
+        } else {
+          inter = this.field.mul(inter, this.field.exp(points[x], exps[x]))
+          exps[x] = 0n
+        }
+      }
+      out.term({ coef: inter, exps: exps.reduce((acc, val, i) => {
+        return {
+          ...acc,
+          [i]: val
+        }
+      }, {})})
+    }
+    this.expMap = out.expMap
+    return this
+  }
+
   evaluate(points) {
     let out = 0n
     for (const [_exps, coef] of this.expMap.entries()) {

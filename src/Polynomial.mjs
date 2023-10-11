@@ -161,6 +161,22 @@ export class Polynomial {
     return degree
   }
 
+  solve() {
+    if (this.degree() > 2) {
+      throw new Error('cannot solve polynomial with degree higher than 2')
+    }
+    const sortedTerms = this.sortedTerms
+    const constant = sortedTerms.find(t => t.exp === 0n) ?? { coef: 0n }
+    const linear = sortedTerms.find(t => t.exp === 1n) ?? { coef: 0n }
+    if (this.degree() === 0n) {
+      return constant.coef
+    }
+    if (this.degree() === 1n) {
+      return this.field.div(this.field.neg(constant.coef), linear.coef)
+    }
+    throw new Error('quadratic solving is not implemented')
+  }
+
   evaluate(val) {
     const degree = this.degree()
     const expCoefMap = {}
