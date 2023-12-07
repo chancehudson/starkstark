@@ -183,4 +183,7 @@ test('should serialize exp vector', t => {
   for (let x = 0; x < in1.length; x++) {
     t.is(in1[x], out[x])
   }
+
+  t.is(MultiPolynomial.expVectorToString([0, 0, 0, 0]), '0')
+  t.is(MultiPolynomial.expStringToVector('0').length, 1)
 })

@@ -259,6 +259,9 @@ export class MultiPolynomial {
         currentRunStart = x + 1
       }
     }
+    if (shortenedVec.length === 0) {
+      shortenedVec.push(0)
+    }
     return shortenedVec.join(',')
   }
 }
