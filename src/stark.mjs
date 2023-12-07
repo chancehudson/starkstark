@@ -51,7 +51,7 @@ export class STARK {
       let largest = 0
 
       for (const [_exps, coef] of t.expMap.entries()) {
-        const exps = _exps.split(',').map(v => v)
+        const exps = MultiPolynomial.expStringToVector(_exps)
         let sum = 0
         for (let x = 0; x < pointDegrees.length; x++) {
           sum += (exps[x] ?? 0) * pointDegrees[x]

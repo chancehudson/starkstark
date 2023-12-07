@@ -171,3 +171,16 @@ test('should subtract two multipolynomials', t => {
 
   t.true(m1.sub(m2).isEqual(expected))
 })
+
+test('should serialize exp vector', t => {
+  const in1 = [1, 0, 0, 0, 0, 1, 2, 3, 4, 0, 0, 1, 0, 4, 59, 29, 1]
+
+  const str = MultiPolynomial.expVectorToString(in1)
+  const out = MultiPolynomial.expStringToVector(str)
+
+  t.is(in1.length, out.length)
+
+  for (let x = 0; x < in1.length; x++) {
+    t.is(in1[x], out[x])
+  }
+})

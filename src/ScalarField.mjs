@@ -51,6 +51,7 @@ export class ScalarField {
   exp(v, e) {
     if (e < 0n) throw new Error('negative exponent')
     if (e === 0n) return 1n
+    if (e === 1n) return v
     if (e === 2n) return this.mul(v, v)
     let t = 1n
     while (e > 0n) {

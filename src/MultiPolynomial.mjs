@@ -36,12 +36,14 @@ export class MultiPolynomial {
   mul(poly) {
     const newExp = new Map()
     for (const [exp1, coef1] of poly.expMap.entries()) {
+      if (!coef1) continue
       const exponents1 = MultiPolynomial.expStringToVector(exp1)
       for (const [exp2, coef2] of this.expMap.entries()) {
+        if (!coef2) continue
         const exponents2 = MultiPolynomial.expStringToVector(exp2)
         const finalExponents = []
         for (let x = 0; x < Math.max(exponents1.length, exponents2.length); x++) {
-          finalExponents.push((exponents1[x] ?? 0n) + (exponents2[x] ?? 0n))
+          finalExponents.push((exponents1[x] ?? 0) + (exponents2[x] ?? 0))
         }
         const expFinal = MultiPolynomial.expVectorToString(finalExponents)
         newExp.set(
@@ -92,7 +94,7 @@ export class MultiPolynomial {
         out.term({ coef, exps: exps.reduce((acc, val, i) => {
           return {
             ...acc,
-            [i]: val
+            [i]: val ?? 0
           }
         }, {})})
         continue
@@ -117,12 +119,13 @@ export class MultiPolynomial {
       const exps = MultiPolynomial.expStringToVector(_exps)
       let inter = coef
       for (let x = 0; x < exps.length; x++) {
-        if (exps[x] === 0n || !exps[x]) continue
+        if (!exps[x]) continue
         if (points[x] === null) {
           // leave as is
         } else {
-          inter = this.field.mul(inter, this.field.exp(points[x], exps[x]))
-          exps[x] = 0n
+          // console.log(exps[x])
+          inter = this.field.mul(inter, this.field.exp(points[x], BigInt(exps[x])))
+          exps[x] = 0
         }
       }
       out.term({ coef: inter, exps: exps.reduce((acc, val, i) => {
@@ -142,9 +145,9 @@ export class MultiPolynomial {
       const exps = MultiPolynomial.expStringToVector(_exps)
       let inter = coef
       for (let x = 0; x < exps.length; x++) {
-        if (exps[x] === 0n || !exps[x]) continue
+        if (!exps[x]) continue
         if (points.length < x) throw new Error(`No point defined for variable ${x}`)
-        inter = this.field.mul(inter, this.field.exp(points[x], exps[x]))
+        inter = this.field.mul(inter, this.field.exp(points[x], BigInt(exps[x])))
       }
       out = this.field.add(out, inter)
     }
@@ -156,11 +159,11 @@ export class MultiPolynomial {
     for (const [_exp, coef] of this.expMap.entries()) {
       const prod = new Polynomial(this.field)
         .term({ coef, exp: 0n })
-      const exp = MultiPolynomial.expStringToVector(_exp)
-      for (let x = 0; x < exp.length; x++) {
-        if (exp[x] === 0n) continue
+      const exps = MultiPolynomial.expStringToVector(_exp)
+      for (let x = 0; x < exps.length; x++) {
+        if (!exps[x]) continue
         if (x >= polys.length) throw new Error(`No point defined for variable ${x}`)
-        prod.mul(polys[x].copy().exp(exp[x]))
+        prod.mul(polys[x].copy().exp(exps[x]))
       }
       acc.add(prod)
     }
@@ -179,9 +182,10 @@ export class MultiPolynomial {
         vec[i] = exps[key]
     }
     const exp = MultiPolynomial.expVectorToString(vec)
+    const existing = this.expMap.get(exp)
     this.expMap.set(
       exp,
-      this.field.add(this.expMap.get(exp) ?? 0n, coef)
+      existing ? this.field.add(existing, coef) : this.field.mod(coef)
     )
     return this
   }
@@ -209,26 +213,52 @@ export class MultiPolynomial {
     const out = new Map()
     for (const [_exp, coef] of this.expMap.entries()) {
       const exp = MultiPolynomial.expStringToVector(_exp)
-      const numExp = exp.map(v => Number(v))
+      const numExp = exp.map(v => v ? Number(v) : 0)
       out.set(numExp, serializeBigint(coef))
     }
     return out
   }
 
   static expStringToVector(s) {
-    return s.split(',').map(v => BigInt(v))
+    const compressed = s.split('|')
+    const out = []
+    for (const [i, sc] of Object.entries(compressed)) {
+      if (sc.length === 0) continue
+      const split = sc.split(',').filter(v => v.length)
+      if (split[0].length && split[0].startsWith('>')) {
+        out.push(...Array(Number(split[0].slice(1))).fill(null))
+        out.push(...split.slice(1))
+      } else {
+        out.push(...split)
+      }
+    }
+    return out.flat().map(v => +v)
   }
 
   static expVectorToString(vec) {
     // trim trailing zeroes
     let lastIndex = vec.length
     for (let x = vec.length-1; x >= 0; --x) {
-      if (vec[x] === 0n) lastIndex = x
+      if (!vec[x]) lastIndex = x
       else break
     }
-    return vec.slice(0, Math.max(lastIndex, 1)).join(',')
-  // console.log(vec.slice(0, Math.max(lastIndex, 1))
-  //   if (vec.length > this.MAX_VARS) throw new Error('Too many exponent vectors')
-  //   return [...vec, ...Array(this.MAX_VARS - vec.length).fill(0)].join(',')
+    const realLength = Math.max(lastIndex, 1)
+    let currentRunStart = 0
+    const runs = []
+    const shortenedVec = []
+    for (let x = 0; x < realLength; x++) {
+      if (vec[x]) {
+        // run ends here
+        const l = x - currentRunStart
+        if (l > 2) {
+          shortenedVec.push(`|>${l}`)
+        } else if (l > 0) {
+          shortenedVec.push(...Array(l).fill(0))
+        }
+        shortenedVec.push(vec[x])
+        currentRunStart = x + 1
+      }
+    }
+    return shortenedVec.join(',')
   }
 }
