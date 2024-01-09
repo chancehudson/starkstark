@@ -202,11 +202,12 @@ export class MultiPolynomial {
   serialize() {
     // turn it into a u32 array
     function serializeBigint(v) {
+      const bits = 8n
       let _v = v
       const out = []
       while (_v > 0n) {
-        out.push(Number(_v & ((1n << 32n) - 1n)))
-        _v >>= 32n
+        out.push(Number(_v & ((1n << bits) - 1n)))
+        _v >>= bits
       }
       return out
     }
